@@ -10,58 +10,42 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import AgentZoneNode, { type AgentZoneData } from "./nodes/AgentZoneNode";
-import type { AgentBlocks } from "@/app/api/strategy/route";
+import type { AgentBlocks, StrategyBlock } from "@/app/api/strategy/route";
 
 const NODE_TYPES = { agentZone: AgentZoneNode };
 
 const AGENT_META = {
+  data:    { label: "Data Feed",    color: "#f59e0b", borderColor: "#f59e0b", bgColor: "rgba(245,158,11,0.04)" },
   alpha:   { label: "Alpha Agent",  color: "#22d3ee", borderColor: "#22d3ee", bgColor: "rgba(34,211,238,0.04)" },
   news:    { label: "News Agent",   color: "#a78bfa", borderColor: "#a78bfa", bgColor: "rgba(167,139,250,0.04)" },
   manager: { label: "Manager",      color: "#34d399", borderColor: "#34d399", bgColor: "rgba(52,211,153,0.04)" },
   risk:    { label: "Risk Agent",   color: "#fb7185", borderColor: "#fb7185", bgColor: "rgba(251,113,133,0.04)" },
 };
 
-// DAG layout: alpha + news → manager → risk
 const POSITIONS = {
-  alpha:   { x: 60,  y: 40  },
-  news:    { x: 60,  y: 320 },
-  manager: { x: 420, y: 180 },
-  risk:    { x: 780, y: 180 },
+  data:    { x: -280, y: 180 },
+  alpha:   { x: 80,   y: 40  },
+  news:    { x: 80,   y: 340 },
+  manager: { x: 440,  y: 190 },
+  risk:    { x: 800,  y: 190 },
 };
 
 const STATIC_EDGES: Edge[] = [
-  {
-    id: "alpha-manager",
-    source: "alpha",
-    target: "manager",
-    animated: true,
-    style: { stroke: "#22d3ee", strokeWidth: 2, opacity: 0.6 },
-  },
-  {
-    id: "news-manager",
-    source: "news",
-    target: "manager",
-    animated: true,
-    style: { stroke: "#a78bfa", strokeWidth: 2, opacity: 0.6 },
-  },
-  {
-    id: "manager-risk",
-    source: "manager",
-    target: "risk",
-    animated: true,
-    style: { stroke: "#34d399", strokeWidth: 2, opacity: 0.6 },
-  },
+  { id: "data-alpha",    source: "data",    target: "alpha",   animated: true, style: { stroke: "#f59e0b", strokeWidth: 2, opacity: 0.6 } },
+  { id: "alpha-manager", source: "alpha",   target: "manager", animated: true, style: { stroke: "#22d3ee", strokeWidth: 2, opacity: 0.6 } },
+  { id: "news-manager",  source: "news",    target: "manager", animated: true, style: { stroke: "#a78bfa", strokeWidth: 2, opacity: 0.6 } },
+  { id: "manager-risk",  source: "manager", target: "risk",    animated: true, style: { stroke: "#34d399", strokeWidth: 2, opacity: 0.6 } },
 ];
 
 interface FlowCanvasProps {
   agentBlocks: AgentBlocks;
-  onExpandAgent: (agentKey: string) => void;
+  onBlocksChange: (agentKey: string, blocks: StrategyBlock[]) => void;
 }
 
-export default function FlowCanvas({ agentBlocks, onExpandAgent }: FlowCanvasProps) {
-  const handleExpand = useCallback(
-    (key: string) => onExpandAgent(key),
-    [onExpandAgent]
+export default function FlowCanvas({ agentBlocks, onBlocksChange }: FlowCanvasProps) {
+  const handleBlocksChange = useCallback(
+    (agentKey: string, blocks: StrategyBlock[]) => onBlocksChange(agentKey, blocks),
+    [onBlocksChange]
   );
 
   const nodes: Node[] = useMemo(
@@ -72,7 +56,7 @@ export default function FlowCanvas({ agentBlocks, onExpandAgent }: FlowCanvasPro
           ...meta,
           agentKey: key,
           blocks: agentBlocks[key] ?? [],
-          onExpand: handleExpand,
+          onBlocksChange: handleBlocksChange,
         };
         return {
           id: key,
@@ -82,7 +66,7 @@ export default function FlowCanvas({ agentBlocks, onExpandAgent }: FlowCanvasPro
           draggable: true,
         };
       }),
-    [agentBlocks, handleExpand]
+    [agentBlocks, handleBlocksChange]
   );
 
   return (
@@ -96,12 +80,7 @@ export default function FlowCanvas({ agentBlocks, onExpandAgent }: FlowCanvasPro
       maxZoom={2}
       proOptions={{ hideAttribution: true }}
     >
-      <Background
-        variant={BackgroundVariant.Dots}
-        gap={32}
-        size={1}
-        color="rgba(255,255,255,0.07)"
-      />
+      <Background variant={BackgroundVariant.Dots} gap={32} size={1} color="rgba(255,255,255,0.07)" />
     </ReactFlow>
   );
 }

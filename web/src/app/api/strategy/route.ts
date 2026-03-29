@@ -6,10 +6,11 @@ export interface StrategyBlock {
 }
 
 export interface AgentBlocks {
-  alpha: StrategyBlock[];
-  news: StrategyBlock[];
+  data:    StrategyBlock[];
+  alpha:   StrategyBlock[];
+  news:    StrategyBlock[];
   manager: StrategyBlock[];
-  risk: StrategyBlock[];
+  risk:    StrategyBlock[];
 }
 
 export interface StrategyResponse {
@@ -27,14 +28,25 @@ interface Rule {
 }
 
 const RULES: Rule[] = [
+  // Data Feed rules
+  { keywords: ["nasdaq", "us market", "s&p", "snp", "spx"], agent: "data", block: { type: "feed_nasdaq", fields: { ASSET: "NQ1!", CONDITION: "above_ma", PERIOD: 20 } } },
+  { keywords: ["interest rate", "fed", "federal reserve", "rate hike", "rate cut"], agent: "data", block: { type: "feed_interest_rate", fields: { SOURCE: "fed_funds", CHANGE: "any" } } },
+  { keywords: ["exchange rate", "fx", "usd", "eur", "환율"], agent: "data", block: { type: "feed_fx_rate", fields: { PAIR: "USD/KRW", THRESHOLD: 1300 } } },
+  { keywords: ["gold", "silver", "commodity"], agent: "data", block: { type: "feed_commodity", fields: { ASSET: "GOLD", DIRECTION: "up" } } },
+  { keywords: ["fear", "greed", "fear and greed", "sentiment index"], agent: "data", block: { type: "feed_fear_greed", fields: { ZONE: "extreme_fear" } } },
+  { keywords: ["vix", "volatility", "implied vol"], agent: "data", block: { type: "feed_vix", fields: { THRESHOLD: 20, OPERATOR: ">=" } } },
+
   // Alpha rules
   { keywords: ["momentum", "trend", "breakout", "pump"], agent: "alpha", block: { type: "alpha_when_momentum", fields: { DIRECTION: "above", PERIOD: 7 } } },
   { keywords: ["price above", "price over", "price hit"], agent: "alpha", block: { type: "alpha_when_price", fields: { TOKEN: "BNB", OPERATOR: ">=", VALUE: 300 } } },
   { keywords: ["volume spike", "high volume", "volume surge"], agent: "alpha", block: { type: "alpha_when_volume", fields: { MULTIPLIER: 2 } } },
+  { keywords: ["ai decide", "ai signal", "let ai", "autonomous", "ai judge"], agent: "alpha", block: { type: "alpha_ai_decide", fields: { CONTEXT: "market_conditions", CONFIDENCE: 70 } } },
 
-  // News rules
+  // News / Semantic rules
   { keywords: ["news", "sentiment", "bullish", "bearish"], agent: "news", block: { type: "news_when_sentiment", fields: { SENTIMENT: "positive" } } },
   { keywords: ["keyword", "announcement", "upgrade", "listing"], agent: "news", block: { type: "news_when_keyword", fields: { KEYWORD: "BNB upgrade", SOURCE: "news" } } },
+  { keywords: ["semantic", "context", "meaning", "interpret", "언어"], agent: "news", block: { type: "news_semantic_filter", fields: { QUERY: "bullish market signal", THRESHOLD: 0.7 } } },
+  { keywords: ["fed statement", "central bank", "policy", "macro event"], agent: "news", block: { type: "news_semantic_filter", fields: { QUERY: "dovish fed policy", THRESHOLD: 0.75 } } },
 
   // Manager rules
   { keywords: ["dca", "dollar cost", "accumulate", "buy regularly"], agent: "manager", block: { type: "mgr_dca", fields: { AMOUNT: 100, TOKEN: "BNB", INTERVAL: "weekly" } } },
@@ -53,7 +65,7 @@ const RULES: Rule[] = [
 
 function parseAgents(input: string): AgentBlocks {
   const lower = input.toLowerCase();
-  const agents: AgentBlocks = { alpha: [], news: [], manager: [], risk: [] };
+  const agents: AgentBlocks = { data: [], alpha: [], news: [], manager: [], risk: [] };
   const seen = new Set<string>();
 
   for (const rule of RULES) {
@@ -63,7 +75,6 @@ function parseAgents(input: string): AgentBlocks {
     }
   }
 
-  // Fallbacks per agent
   if (agents.alpha.length === 0) {
     agents.alpha.push({ type: "alpha_when_momentum", fields: { DIRECTION: "above", PERIOD: 7 } });
   }
@@ -82,7 +93,9 @@ function generateName(input: string): string {
   if (lower.includes("dca")) return "DCA Accumulation Strategy";
   if (lower.includes("momentum")) return "Momentum Strategy";
   if (lower.includes("rebalance")) return "Portfolio Rebalance Strategy";
+  if (lower.includes("nasdaq") || lower.includes("macro")) return "Macro-Aware Strategy";
   if (lower.includes("news") || lower.includes("sentiment")) return "News Alpha Strategy";
+  if (lower.includes("semantic") || lower.includes("fed")) return "Semantic Strategy";
   return "Custom Strategy";
 }
 
