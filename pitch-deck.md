@@ -74,6 +74,6 @@
 
 ## 8. 다음 개발 계획 (What We'd Build Next)
 
-- **단기 (1-3개월):** 코어 블록 빌더 MVP + 주요 거래소 API 연동(Binance, Upbit) + 기본 백테스트 엔진
+- **단기 (1-3개월):** 코어 블록 빌더 MVP + 주요 거래소 API 연동(Binance, Upbit)
 - **중기 (3-6개월):** 마켓플레이스 오픈 + Semantic Strategy 블록 베타(뉴스/여론 AI 에이전트 연동) + Non-Coin Signal 블록(나스닥 선물, 금리, 환율 피드) 추가
 - **장기 비전:** 전략 실적의 온체인 검증 시스템 도입 → 전략을 NFT로 발행해 소유권/수익 배분을 스마트 컨트랙트로 관리 → 전략 제작자 경제(creator economy) 생태계 구축
