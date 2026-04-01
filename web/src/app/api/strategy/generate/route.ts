@@ -17,19 +17,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "ANTHROPIC_API_KEY not configured" }, { status: 503 });
   }
 
-  const message = await client.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 1024,
-    system: SYSTEM_PROMPT,
-    messages: [
-      {
-        role: "user",
-        content: input,
-      },
-    ],
-  });
-
-  const rawText = message.content[0].type === "text" ? message.content[0].text : "";
+  let rawText: string;
+  try {
+    const message = await client.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 1024,
+      system: SYSTEM_PROMPT,
+      messages: [{ role: "user", content: input }],
+    });
+    rawText = message.content[0].type === "text" ? message.content[0].text : "";
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Unknown API error";
+    console.error("[strategy/generate] Anthropic API error:", msg);
+    return NextResponse.json({ error: msg }, { status: 502 });
+  }
 
   // Strip potential markdown code fences
   const jsonText = rawText.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "").trim();

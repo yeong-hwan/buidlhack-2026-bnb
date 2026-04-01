@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useAccount, useConnect, useDisconnect } from "wagmi";
 
 const NAV_ITEMS = [
   { label: "Home", href: "/" },
@@ -12,6 +13,12 @@ const NAV_ITEMS = [
 
 export default function Navbar() {
   const pathname = usePathname();
+  const { address, isConnected } = useAccount();
+  const { connect, connectors } = useConnect();
+  const { disconnect } = useDisconnect();
+
+  const abbreviate = (addr: string) =>
+    `${addr.slice(0, 6)}...${addr.slice(-4)}`;
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 border-b border-white/10 bg-black/80 backdrop-blur-md">
@@ -39,9 +46,21 @@ export default function Navbar() {
           })}
         </nav>
 
-        <button className="rounded-md bg-green-500 px-4 py-1.5 text-sm font-medium text-black transition-colors hover:bg-green-400">
-          Connect Wallet
-        </button>
+        {isConnected && address ? (
+          <button
+            onClick={() => disconnect()}
+            className="rounded-md bg-green-500 px-4 py-1.5 text-sm font-medium text-black transition-colors hover:bg-green-400"
+          >
+            {abbreviate(address)}
+          </button>
+        ) : (
+          <button
+            onClick={() => connect({ connector: connectors[0] })}
+            className="rounded-md bg-green-500 px-4 py-1.5 text-sm font-medium text-black transition-colors hover:bg-green-400"
+          >
+            Connect Wallet
+          </button>
+        )}
       </div>
     </header>
   );
