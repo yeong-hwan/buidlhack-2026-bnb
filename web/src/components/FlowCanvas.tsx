@@ -37,78 +37,59 @@ const COLUMN: Record<AgentKey, number> = {
   data: 0, alpha: 1, news: 1, manager: 2, risk: 3,
 };
 
-const COL_X = [0, 360, 720, 1080];
-const NODE_W = 280;
-const NODE_GAP_Y = 40;
-const BLOCK_H = 36; // approx height per block card
+const COL_SPACING = 400;
+const NODE_GAP_Y = 60;
+const BLOCK_H = 44;
 
 function computeLayout(agentBlocks: AgentBlocks) {
-  const active = (Object.keys(AGENT_META) as AgentKey[]).filter(
-    (k) => (agentBlocks[k]?.length ?? 0) > 0
-  );
+  const allKeys = Object.keys(AGENT_META) as AgentKey[];
+  const active = allKeys.filter((k) => (agentBlocks[k]?.length ?? 0) > 0);
 
-  // Group active agents by column
-  const columns: Map<number, AgentKey[]> = new Map();
-  for (const k of active) {
-    const col = COLUMN[k];
-    if (!columns.has(col)) columns.set(col, []);
-    columns.get(col)!.push(k);
-  }
-
-  // Estimate node height for centering
   function nodeHeight(k: AgentKey): number {
     const blockCount = agentBlocks[k]?.length ?? 0;
-    return 60 + Math.max(1, blockCount) * BLOCK_H;
+    return blockCount > 0 ? 70 + blockCount * BLOCK_H : 90;
   }
 
-  // For each column, stack agents vertically centered around y=0
-  const positions: Partial<Record<AgentKey, { x: number; y: number }>> = {};
+  // Fixed positions per agent — always placed, never overlapping
+  // Column 0: data, Column 1: alpha + news, Column 2: manager, Column 3: risk
+  const positions: Record<AgentKey, { x: number; y: number }> = {
+    data:    { x: 0,                y: 0 },
+    alpha:   { x: COL_SPACING,      y: 0 },
+    news:    { x: COL_SPACING,      y: 0 },
+    manager: { x: COL_SPACING * 2,  y: 0 },
+    risk:    { x: COL_SPACING * 3,  y: 0 },
+  };
 
-  // Find which columns are actually used
-  const usedCols = [...columns.keys()].sort((a, b) => a - b);
+  // Stack alpha + news vertically in column 1
+  const alphaH = nodeHeight("alpha");
+  const newsH = nodeHeight("news");
+  const col1Total = alphaH + NODE_GAP_Y + newsH;
+  positions.alpha.y = -col1Total / 2;
+  positions.news.y = positions.alpha.y + alphaH + NODE_GAP_Y;
 
-  // Re-index columns to remove gaps
-  const colRemap = new Map<number, number>();
-  usedCols.forEach((col, idx) => colRemap.set(col, idx));
+  // Center single-agent columns with col1
+  const col1Center = positions.alpha.y + col1Total / 2;
+  positions.data.y = col1Center - nodeHeight("data") / 2;
+  positions.manager.y = col1Center - nodeHeight("manager") / 2;
+  positions.risk.y = col1Center - nodeHeight("risk") / 2;
 
-  for (const [col, agents] of columns) {
-    const cx = COL_X[colRemap.get(col)!] ?? col * 360;
-    const totalH = agents.reduce((s, k) => s + nodeHeight(k) + NODE_GAP_Y, -NODE_GAP_Y);
-    let y = -totalH / 2;
-    for (const k of agents) {
-      positions[k] = { x: cx, y };
-      y += nodeHeight(k) + NODE_GAP_Y;
-    }
-  }
-
-  // Also include inactive agents but collapsed (tiny) and dimmed
-  const allKeys = Object.keys(AGENT_META) as AgentKey[];
-  const inactive = allKeys.filter((k) => !active.includes(k));
-
-  // Place inactive in their column but at bottom, below active
-  for (const k of inactive) {
-    const col = COLUMN[k];
-    const cx = COL_X[colRemap.get(col) ?? col] ?? col * 360;
-    const colAgents = columns.get(col) ?? [];
-    const lastActive = colAgents[colAgents.length - 1];
-    const baseY = lastActive ? (positions[lastActive]!.y + nodeHeight(lastActive) + NODE_GAP_Y) : 0;
-    positions[k] = { x: cx, y: baseY };
-  }
-
-  // Build edges only between active nodes
+  // Edges: always show between active, plus dimmed edges for inactive
   const edges: Edge[] = DAG_EDGES
-    .filter((e) => active.includes(e.source) && active.includes(e.target))
-    .map((e) => ({
-      id: `${e.source}-${e.target}`,
-      source: e.source,
-      target: e.target,
-      animated: true,
-      style: {
-        stroke: AGENT_META[e.source].color,
-        strokeWidth: 2,
-        opacity: 0.6,
-      },
-    }));
+    .filter((e) => active.includes(e.source) || active.includes(e.target))
+    .map((e) => {
+      const bothActive = active.includes(e.source) && active.includes(e.target);
+      return {
+        id: `${e.source}-${e.target}`,
+        source: e.source,
+        target: e.target,
+        animated: bothActive,
+        style: {
+          stroke: AGENT_META[e.source].color,
+          strokeWidth: bothActive ? 2 : 1,
+          opacity: bothActive ? 0.6 : 0.15,
+        },
+      };
+    });
 
   return { positions, edges, active };
 }
@@ -143,10 +124,10 @@ export default function FlowCanvas({ agentBlocks, onBlocksChange }: FlowCanvasPr
         return {
           id: key,
           type: "agentZone",
-          position: positions[key] ?? { x: 0, y: 0 },
+          position: positions[key],
           data,
           draggable: true,
-          style: isActive ? undefined : { opacity: 0.35, transform: "scale(0.85)" },
+          style: isActive ? undefined : { opacity: 0.3 },
         };
       }),
     [agentBlocks, handleBlocksChange, positions, active]

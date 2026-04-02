@@ -97,11 +97,14 @@ RULES:
 1. Only use block types listed above. Do not invent new types.
 2. All field values must match the specified type/enum.
 3. data agent feeds cross-asset signals to alpha; alpha and news emit signals; manager listens via mgr_on_signal.
-4. risk blocks always apply regardless of other agents.
-5. Each agent array can have 0–5 blocks. Only include relevant blocks.
-6. If the description doesn't mention news/sentiment, leave news array empty.
-7. If the description mentions macro data (NASDAQ, FX, rates, gold, VIX), populate the data array.
-8. If the description hints at AI/autonomous decision, use alpha_ai_decide or news_semantic_filter.
+4. risk agent MUST always have at least 1 block (e.g. risk_set_stop_loss). Never leave risk empty.
+5. manager agent MUST always have at least 1 block. Include mgr_on_signal when alpha or news agents emit signals.
+6. alpha agent MUST always have at least 1 block — use alpha_when_momentum as default if unsure.
+7. Each agent array can have 1–5 blocks. Include relevant blocks only but ensure minimum coverage.
+8. If the description doesn't mention news/sentiment, leave news array empty.
+9. If the description mentions macro data (NASDAQ, FX, rates, gold, VIX, macro), populate the data array.
+10. If the description hints at AI/autonomous decision, use alpha_ai_decide or news_semantic_filter.
+11. Respond in the same language as the user input for the "description" field.
 
 OUTPUT FORMAT (strict JSON, no markdown, no explanation):
 {
