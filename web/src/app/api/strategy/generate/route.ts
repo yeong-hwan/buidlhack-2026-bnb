@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import OpenAI from "openai";
 import Anthropic from "@anthropic-ai/sdk";
 import {
   SYSTEM_PROMPT,
@@ -7,9 +8,13 @@ import {
   type StrategyBlock,
 } from "@/lib/strategySchema";
 
-const client = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
+const openai = process.env.OPENAI_API_KEY
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  : null;
+
+const anthropic = process.env.ANTHROPIC_API_KEY
+  ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+  : null;
 
 // ─── Smart Mock ───────────────────────────────────────────────────────────────
 
@@ -232,6 +237,19 @@ function generateMockStrategy(input: string): StrategyGenerationResult {
   return validateStrategyResult({ name, description, agents: { data, alpha, news, manager, risk } });
 }
 
+// ─── Shared LLM response parser ──────────────────────────────────────────────
+
+function parseLlmResponse(rawText: string, input: string): StrategyGenerationResult | null {
+  const jsonText = rawText.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "").trim();
+  try {
+    const parsed = JSON.parse(jsonText);
+    return validateStrategyResult(parsed);
+  } catch (e) {
+    console.warn("[strategy/generate] LLM parse/validate failed:", (e as Error).message);
+    return null;
+  }
+}
+
 // ─── Route Handler ────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
@@ -241,45 +259,43 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "input is required" }, { status: 400 });
   }
 
-  // Try real Anthropic API first
-  if (process.env.ANTHROPIC_API_KEY) {
+  // 1. Try OpenAI first
+  if (openai) {
     try {
-      const message = await client.messages.create({
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        max_tokens: 1024,
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: input },
+        ],
+        temperature: 0.7,
+      });
+      const rawText = completion.choices[0]?.message?.content ?? "";
+      const result = parseLlmResponse(rawText, input);
+      if (result) return NextResponse.json(result);
+    } catch (err: unknown) {
+      console.warn("[strategy/generate] OpenAI error:", err instanceof Error ? err.message : err);
+    }
+  }
+
+  // 2. Try Anthropic
+  if (anthropic) {
+    try {
+      const message = await anthropic.messages.create({
         model: "claude-sonnet-4-6",
         max_tokens: 1024,
         system: SYSTEM_PROMPT,
         messages: [{ role: "user", content: input }],
       });
       const rawText = message.content[0].type === "text" ? message.content[0].text : "";
-
-      // Strip potential markdown code fences
-      const jsonText = rawText.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "").trim();
-
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(jsonText);
-      } catch {
-        console.warn("[strategy/generate] LLM returned invalid JSON — falling back to mock");
-        return NextResponse.json(generateMockStrategy(input));
-      }
-
-      let result: StrategyGenerationResult;
-      try {
-        result = validateStrategyResult(parsed);
-        return NextResponse.json(result);
-      } catch (e) {
-        console.warn("[strategy/generate] Schema validation failed — falling back to mock:", (e as Error).message);
-        return NextResponse.json(generateMockStrategy(input));
-      }
+      const result = parseLlmResponse(rawText, input);
+      if (result) return NextResponse.json(result);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Unknown API error";
-      console.warn("[strategy/generate] Anthropic API error — falling back to mock:", msg);
-      // Fall through to mock below
+      console.warn("[strategy/generate] Anthropic error:", err instanceof Error ? err.message : err);
     }
-  } else {
-    console.warn("[strategy/generate] No ANTHROPIC_API_KEY — using mock");
   }
 
-  // Smart mock fallback
+  // 3. Smart mock fallback
   return NextResponse.json(generateMockStrategy(input));
 }
