@@ -3,17 +3,11 @@
 import dynamic from "next/dynamic";
 import { useState, useTransition, useCallback } from "react";
 import type { StrategyResponse, StrategyBlock, AgentBlocks } from "@/app/api/strategy/route";
+import ChatThread, { type ChatMessage } from "@/components/ChatThread";
 
 const FlowCanvas = dynamic(() => import("@/components/FlowCanvas"), { ssr: false });
 
 type AgentKey = keyof AgentBlocks;
-
-const EXAMPLES = [
-  "DCA into BNB every week with a 10% stop loss",
-  "Buy BNB when NASDAQ rises and sentiment is bullish",
-  "Monitor news sentiment and enter long on bullish signal",
-  "Rebalance portfolio to 50% BNB on volume spike",
-];
 
 const LIFECYCLE = ["Design", "Backtest", "Deploy", "Observe", "Iterate", "Marketplace"];
 
@@ -49,25 +43,36 @@ const DEFAULT_AGENTS: AgentBlocks = {
   ],
 };
 
+let msgId = 0;
+function nextId() { return `msg-${++msgId}`; }
+
 export default function StrategyPage() {
   const [input, setInput]             = useState("");
   const [strategy, setStrategy]       = useState<StrategyResponse | null>(null);
   const [agentBlocks, setAgentBlocks] = useState<AgentBlocks>(DEFAULT_AGENTS);
+  const [messages, setMessages]       = useState<ChatMessage[]>([]);
   const [isPending, startTransition]  = useTransition();
 
   async function generate(text: string) {
     if (!text.trim()) return;
-    startTransition(async () => {
-      let data: StrategyResponse | null = null;
 
-      const llmRes = await fetch("/api/strategy/generate", {
+    // Add user message
+    const userMsg: ChatMessage = {
+      id: nextId(), role: "user", content: text, timestamp: Date.now(),
+    };
+    setMessages((prev) => [...prev, userMsg]);
+    setInput("");
+
+    startTransition(async () => {
+      const res = await fetch("/api/strategy/generate", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ input: text }),
       });
 
-      if (llmRes.ok) {
-        data = await llmRes.json();
+      let data: StrategyResponse | null = null;
+      if (res.ok) {
+        data = await res.json();
       } else {
         const fallback = await fetch("/api/strategy", {
           method:  "POST",
@@ -80,6 +85,21 @@ export default function StrategyPage() {
       if (data) {
         setStrategy(data);
         setAgentBlocks(data.agents);
+
+        const blockCounts: Record<string, number> = {};
+        for (const [k, v] of Object.entries(data.agents)) {
+          blockCounts[k] = (v as StrategyBlock[]).length;
+        }
+
+        const sysMsg: ChatMessage = {
+          id: nextId(),
+          role: "system",
+          content: data.description || `Generated "${data.name}"`,
+          strategyName: data.name,
+          blockCounts,
+          timestamp: Date.now(),
+        };
+        setMessages((prev) => [...prev, sysMsg]);
       }
     });
   }
@@ -103,7 +123,6 @@ export default function StrategyPage() {
           )}
         </div>
 
-        {/* Lifecycle */}
         <div className="flex items-center gap-0.5">
           {LIFECYCLE.map((step, idx) => (
             <div key={step} className="flex items-center gap-0.5">
@@ -137,11 +156,11 @@ export default function StrategyPage() {
         </div>
       </header>
 
-      {/* Main: sidebar + canvas */}
+      {/* Main: sidebar + canvas + chat */}
       <div className="flex flex-1 overflow-hidden">
 
-        {/* Left sidebar */}
-        <aside className="flex w-56 shrink-0 flex-col gap-2.5 overflow-y-auto border-r border-white/10 bg-[#0a1425] p-3">
+        {/* Left sidebar — agents only */}
+        <aside className="flex w-48 shrink-0 flex-col gap-2.5 overflow-y-auto border-r border-white/10 bg-[#0a1425] p-3">
           <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
             <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-white/35">
               Agents
@@ -156,50 +175,28 @@ export default function StrategyPage() {
                   <span className={`text-[10px] font-medium ${color}`}>{label}</span>
                 </div>
                 <span className="text-[10px] text-white/30">
-                  {agentBlocks[key as keyof AgentBlocks]?.length ?? 0} blk
+                  {agentBlocks[key as keyof AgentBlocks]?.length ?? 0}
                 </span>
               </div>
-            ))}
-          </div>
-
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-            <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-white/35">
-              Examples
-            </div>
-            {EXAMPLES.map((ex) => (
-              <button
-                key={ex}
-                onClick={() => { setInput(ex); generate(ex); }}
-                className="mb-1 w-full rounded-xl border border-white/10 bg-[#0d1a2d] px-2.5 py-2 text-left text-[11px] leading-relaxed text-white/55 hover:border-white/20 hover:text-white/80"
-              >
-                {ex}
-              </button>
             ))}
           </div>
         </aside>
 
         {/* DAG Canvas */}
         <div className="relative flex-1 overflow-hidden">
-          {/* Floating strategy input bar */}
-          <div className="absolute top-4 left-1/2 z-10 flex w-[560px] -translate-x-1/2 items-center gap-2 rounded-2xl border border-white/15 bg-[#0b1628]/90 px-4 py-2.5 shadow-2xl backdrop-blur-md">
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); generate(input); } }}
-              placeholder="Describe your strategy..."
-              className="flex-1 bg-transparent text-sm text-white placeholder-white/25 outline-none"
-            />
-            <button
-              onClick={() => generate(input)}
-              disabled={!input.trim() || isPending}
-              className="shrink-0 rounded-xl bg-cyan-400 px-4 py-1.5 text-xs font-semibold text-slate-900 hover:bg-cyan-300 disabled:opacity-30"
-            >
-              {isPending ? "..." : "Generate"}
-            </button>
-          </div>
-
           <FlowCanvas agentBlocks={agentBlocks} onBlocksChange={handleBlocksChange} />
         </div>
+
+        {/* Right: Chat Thread */}
+        <aside className="w-72 shrink-0 border-l border-white/10 bg-[#0a1425]">
+          <ChatThread
+            messages={messages}
+            onSend={generate}
+            isPending={isPending}
+            input={input}
+            onInputChange={setInput}
+          />
+        </aside>
       </div>
     </div>
   );

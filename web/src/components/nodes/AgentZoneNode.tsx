@@ -90,6 +90,7 @@ function AgentZoneNode({ data }: NodeProps) {
               key={`${b.type}-${i}`}
               block={b}
               color={d.color}
+              isFirst={i === 0}
               isLast={i === d.blocks.length - 1 && !editing}
               editing={editing}
               onUpdate={(fields) => handleUpdateBlock(i, fields)}
