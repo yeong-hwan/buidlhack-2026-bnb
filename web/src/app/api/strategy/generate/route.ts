@@ -54,9 +54,9 @@ function generateMockStrategy(input: string): StrategyGenerationResult {
     data.push({ type: "feed_vix", fields: { OPERATOR: ">=", THRESHOLD: 20 } });
     data.push({ type: "feed_fear_greed", fields: { ZONE: "fear" } });
   }
-  // Emit data signal when data feeds are present and strategy has downstream logic
-  if (data.length > 0 && has(lower, "autonomous", "ai", "signal", "macro", "cross")) {
-    data.push({ type: "feed_emit", fields: { SIGNAL: "RISK_ON" } });
+  // Always emit data signal when data feeds are present
+  if (data.length > 0 && !data.some((b) => b.type === "feed_emit")) {
+    data.push({ type: "feed_emit", fields: { SIGNAL: data.some((b) => b.type === "feed_fear_greed") ? "RISK_OFF" : "RISK_ON" } });
   }
 
   // ── Alpha layer ─────────────────────────────────────────────────────────────
@@ -74,6 +74,11 @@ function generateMockStrategy(input: string): StrategyGenerationResult {
   } else if (!has(lower, "rebalance", "portfolio ratio")) {
     // Default: momentum signal
     alpha.push({ type: "alpha_when_momentum", fields: { DIRECTION: "above", PERIOD: 7 } });
+  }
+
+  // Always add emit signal if alpha has triggers but no emit
+  if (alpha.length > 0 && !alpha.some((b) => b.type === "alpha_emit_signal")) {
+    alpha.push({ type: "alpha_emit_signal", fields: { SIGNAL: "BUY", STRENGTH: 75 } });
   }
 
   // ── News layer ──────────────────────────────────────────────────────────────
@@ -116,9 +121,7 @@ function generateMockStrategy(input: string): StrategyGenerationResult {
     manager.push({ type: "mgr_sell", fields: { AMOUNT_PCT: 100, TOKEN: "BNB" } });
   } else {
     // Default: signal-triggered buy
-    if (news.length > 0 || data.length > 0) {
-      manager.push({ type: "mgr_on_signal", fields: { SIGNAL: "BUY" } });
-    }
+    manager.push({ type: "mgr_on_signal", fields: { SIGNAL: "BUY" } });
     const token = has(lower, "eth") ? "ETH" : has(lower, "btc") ? "BTC" : "BNB";
     manager.push({ type: "mgr_buy", fields: { AMOUNT: 100, TOKEN: token, DEX: "pancake" } });
   }
@@ -135,7 +138,8 @@ function generateMockStrategy(input: string): StrategyGenerationResult {
   if (has(lower, "take profit", "profit target", "tp", "target")) {
     const pct = has(lower, "30%", "30 percent") ? 30 : has(lower, "50%", "50 percent") ? 50 : 20;
     risk.push({ type: "risk_set_take_profit", fields: { PCT: pct } });
-  } else if (has(lower, "autonomous", "ai trading", "aggressive")) {
+  } else {
+    // Always add take profit
     risk.push({ type: "risk_set_take_profit", fields: { PCT: 25 } });
   }
 

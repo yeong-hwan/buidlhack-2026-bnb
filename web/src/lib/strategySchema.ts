@@ -96,26 +96,62 @@ ${Object.entries(BLOCK_TYPES)
 RULES:
 1. Only use block types listed above. Do not invent new types.
 2. All field values must match the specified type/enum.
-3. data agent feeds cross-asset signals to alpha; alpha and news emit signals; manager listens via mgr_on_signal.
-4. risk agent MUST always have at least 1 block (e.g. risk_set_stop_loss). Never leave risk empty.
-5. manager agent MUST always have at least 1 block. Include mgr_on_signal when alpha or news agents emit signals.
-6. alpha agent MUST always have at least 1 block — use alpha_when_momentum as default if unsure.
-7. Each agent array can have 1–5 blocks. Include relevant blocks only but ensure minimum coverage.
-8. If the description doesn't mention news/sentiment, leave news array empty.
-9. If the description mentions macro data (NASDAQ, FX, rates, gold, VIX, macro), populate the data array.
-10. If the description hints at AI/autonomous decision, use alpha_ai_decide or news_semantic_filter.
+3. Data flow: data→alpha, alpha→manager, news→manager, manager→risk.
+   - data agents MUST end with feed_emit to send signal downstream.
+   - alpha agents MUST end with alpha_emit_signal to send signal to manager.
+   - news agents MUST end with news_emit_signal to send signal to manager.
+   - manager agents SHOULD start with mgr_on_signal to receive signals.
+4. Generate 2–4 blocks per active agent. Build a REALISTIC pipeline, not just 1 block.
+5. risk agent MUST always have 2+ blocks (e.g. stop_loss + take_profit). Never leave risk thin.
+6. manager agent MUST always have 2+ blocks (signal receiver + action).
+7. alpha agent MUST always have 2+ blocks (trigger + emit).
+8. If description mentions news/sentiment, include 2-3 news blocks. Otherwise leave news empty.
+9. If description mentions macro data (NASDAQ, FX, rates, gold, VIX), include 2-3 data blocks.
+10. If description hints at AI/autonomous, use alpha_ai_decide and/or news_semantic_filter.
 11. Respond in the same language as the user input for the "description" field.
+12. Description should explain the strategy flow conversationally (2-3 sentences).
+
+EXAMPLE (for reference):
+Input: "Buy BNB when NASDAQ rises and news is bullish, stop loss 10%"
+Output:
+{
+  "name": "Macro News BNB Strategy",
+  "description": "NASDAQ 상승 시그널과 뉴스 긍정 시그널이 동시에 발생하면 BNB를 매수합니다. 손절은 -10%로 설정하고, 익절은 +25%로 관리합니다.",
+  "agents": {
+    "data": [
+      {"type":"feed_nasdaq","fields":{"CONDITION":"above_ma"}},
+      {"type":"feed_emit","fields":{"SIGNAL":"RISK_ON"}}
+    ],
+    "alpha": [
+      {"type":"alpha_when_momentum","fields":{"DIRECTION":"above","PERIOD":14}},
+      {"type":"alpha_emit_signal","fields":{"SIGNAL":"BUY","STRENGTH":80}}
+    ],
+    "news": [
+      {"type":"news_when_sentiment","fields":{"SENTIMENT":"positive"}},
+      {"type":"news_emit_signal","fields":{"SIGNAL":"BULLISH"}}
+    ],
+    "manager": [
+      {"type":"mgr_on_signal","fields":{"SIGNAL":"BUY"}},
+      {"type":"mgr_buy","fields":{"AMOUNT":100,"TOKEN":"BNB","DEX":"pancake"}}
+    ],
+    "risk": [
+      {"type":"risk_set_stop_loss","fields":{"PCT":10}},
+      {"type":"risk_set_take_profit","fields":{"PCT":25}},
+      {"type":"risk_max_position","fields":{"MAX_USDT":500}}
+    ]
+  }
+}
 
 OUTPUT FORMAT (strict JSON, no markdown, no explanation):
 {
   "name": "Short strategy name (max 5 words)",
-  "description": "One sentence summary",
+  "description": "2-3 sentence conversational explanation",
   "agents": {
-    "data":    [],
-    "alpha":   [{ "type": "...", "fields": { ... } }],
+    "data":    [{"type":"...","fields":{...}}, ...],
+    "alpha":   [{"type":"...","fields":{...}}, ...],
     "news":    [],
-    "manager": [{ "type": "...", "fields": { ... } }],
-    "risk":    [{ "type": "...", "fields": { ... } }]
+    "manager": [{"type":"...","fields":{...}}, ...],
+    "risk":    [{"type":"...","fields":{...}}, ...]
   }
 }`;
 
