@@ -170,7 +170,64 @@ function generateMockStrategy(input: string): StrategyGenerationResult {
     name = "Volatility Signal Strategy";
   }
 
-  const description = `Strategy generated from: "${input.slice(0, 120)}${input.length > 120 ? "…" : ""}"`;
+  // Build conversational explanation
+  const parts: string[] = [];
+
+  if (data.length > 0) {
+    const feeds = data.filter((b) => b.type !== "feed_emit").map((b) => {
+      const labels: Record<string, string> = { feed_nasdaq: "NASDAQ futures", feed_interest_rate: "Fed interest rate", feed_fx_rate: "FX rate", feed_commodity: "commodity prices", feed_fear_greed: "Fear & Greed index", feed_vix: "VIX volatility" };
+      return labels[b.type] ?? b.type;
+    });
+    if (feeds.length > 0) parts.push(`Monitoring ${feeds.join(", ")} as macro data feeds.`);
+  }
+
+  if (alpha.length > 0) {
+    const hasAI = alpha.some((b) => b.type === "alpha_ai_decide");
+    if (hasAI) {
+      parts.push("AI agent will autonomously analyze market conditions and emit trading signals.");
+    } else {
+      const triggers = alpha.filter((b) => b.type.startsWith("alpha_when_")).map((b) => {
+        if (b.type === "alpha_when_momentum") return `${b.fields.PERIOD}-day momentum`;
+        if (b.type === "alpha_when_price") return `${b.fields.TOKEN} price ${b.fields.OPERATOR} ${b.fields.VALUE}`;
+        if (b.type === "alpha_when_volume") return `volume spike (${b.fields.MULTIPLIER}x avg)`;
+        return b.type;
+      });
+      if (triggers.length > 0) parts.push(`Alpha signals based on ${triggers.join(" and ")}.`);
+    }
+  }
+
+  if (news.length > 0) {
+    const hasSemantic = news.some((b) => b.type === "news_semantic_filter");
+    if (hasSemantic) parts.push("Using AI semantic filter to analyze news context and sentiment.");
+    else parts.push("Monitoring crypto news sentiment for trading signals.");
+  }
+
+  if (manager.length > 0) {
+    const actions = manager.filter((b) => !b.type.includes("signal") && b.type !== "mgr_repeat").map((b) => {
+      if (b.type === "mgr_buy") return `buy ${b.fields.AMOUNT} USDT of ${b.fields.TOKEN} via ${b.fields.DEX === "pancake" ? "PancakeSwap" : "market order"}`;
+      if (b.type === "mgr_sell") return `sell ${b.fields.AMOUNT_PCT}% of ${b.fields.TOKEN}`;
+      if (b.type === "mgr_dca") return `DCA ${b.fields.AMOUNT} USDT into ${b.fields.TOKEN} ${b.fields.INTERVAL}`;
+      if (b.type === "mgr_rebalance") return `rebalance ${b.fields.TOKEN} to ${b.fields.TARGET_PCT}%`;
+      return b.type;
+    });
+    if (actions.length > 0) parts.push(`Execution: ${actions.join(", ")}.`);
+  }
+
+  if (risk.length > 0) {
+    const guards = risk.map((b) => {
+      if (b.type === "risk_set_stop_loss") return `stop loss at -${b.fields.PCT}%`;
+      if (b.type === "risk_set_take_profit") return `take profit at +${b.fields.PCT}%`;
+      if (b.type === "risk_max_position") return `max position ${b.fields.MAX_USDT} USDT`;
+      if (b.type === "risk_max_drawdown") return `max drawdown ${b.fields.PCT}%`;
+      if (b.type === "risk_daily_loss_limit") return `daily loss cap ${b.fields.LIMIT_USDT} USDT`;
+      return b.type;
+    });
+    parts.push(`Risk guards: ${guards.join(", ")}.`);
+  }
+
+  const description = parts.length > 0
+    ? parts.join(" ")
+    : "Strategy configured with default settings.";
 
   return validateStrategyResult({ name, description, agents: { data, alpha, news, manager, risk } });
 }
