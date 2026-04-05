@@ -31,6 +31,7 @@ export type AgentZoneData = {
   blocks: Array<{ type: string; fields: Record<string, string | number>; children?: Array<{ type: string; fields: Record<string, string | number> }> }>;
   errors: BlockError[];
   onBlocksChange: (agentKey: string, blocks: AgentZoneData["blocks"]) => void;
+  onDuplicate?: (agentKey: string) => void;
 };
 
 function DraggableBlock({
@@ -149,13 +150,25 @@ function AgentZoneNode({ data }: NodeProps) {
             <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[9px] text-white/30">{d.blocks.length}</span>
           )}
         </div>
-        <button
-          onClick={(e) => { e.stopPropagation(); setShowPicker(!showPicker); }}
-          onPointerDown={(e) => e.stopPropagation()}
-          className="rounded px-2 py-0.5 text-[10px] text-white/30 hover:bg-white/10 hover:text-white/60"
-        >
-          + Add
-        </button>
+        <div className="flex items-center gap-1">
+          {d.onDuplicate && (
+            <button
+              onClick={(e) => { e.stopPropagation(); d.onDuplicate!(d.agentKey); }}
+              onPointerDown={(e) => e.stopPropagation()}
+              className="rounded px-1.5 py-0.5 text-[10px] text-white/20 hover:bg-white/10 hover:text-white/50"
+              title="Duplicate zone"
+            >
+              copy
+            </button>
+          )}
+          <button
+            onClick={(e) => { e.stopPropagation(); setShowPicker(!showPicker); }}
+            onPointerDown={(e) => e.stopPropagation()}
+            className="rounded px-2 py-0.5 text-[10px] text-white/30 hover:bg-white/10 hover:text-white/60"
+          >
+            + Add
+          </button>
+        </div>
       </div>
 
       {/* Blocks */}
