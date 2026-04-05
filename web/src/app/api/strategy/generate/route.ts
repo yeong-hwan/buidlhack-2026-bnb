@@ -257,11 +257,16 @@ function parseLlmResponse(rawText: string, input: string): StrategyGenerationRes
 // ─── Route Handler ────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
-  const { input } = await req.json();
+  const { input, previousStrategy } = await req.json();
 
   if (!input || typeof input !== "string") {
     return NextResponse.json({ error: "input is required" }, { status: 400 });
   }
+
+  // Build context-aware user message
+  const userMessage = previousStrategy
+    ? `CURRENT STRATEGY (modify this based on the user request below):\n${JSON.stringify(previousStrategy, null, 2)}\n\nUSER REQUEST:\n${input}`
+    : input;
 
   // 1. Try OpenAI first
   if (openai) {
@@ -271,7 +276,7 @@ export async function POST(req: NextRequest) {
         max_tokens: 1024,
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: input },
+          { role: "user", content: userMessage },
         ],
         temperature: 0.7,
       });
@@ -290,7 +295,7 @@ export async function POST(req: NextRequest) {
         model: "claude-sonnet-4-6",
         max_tokens: 1024,
         system: SYSTEM_PROMPT,
-        messages: [{ role: "user", content: input }],
+        messages: [{ role: "user", content: userMessage }],
       });
       const rawText = message.content[0].type === "text" ? message.content[0].text : "";
       const result = parseLlmResponse(rawText, input);

@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useState, useTransition, useCallback } from "react";
 import type { StrategyResponse, StrategyBlock, AgentBlocks } from "@/app/api/strategy/route";
 import ChatThread, { type ChatMessage } from "@/components/ChatThread";
+import BlockPalette from "@/components/BlockPalette";
 
 const FlowCanvas = dynamic(() => import("@/components/FlowCanvas"), { ssr: false });
 
@@ -67,7 +68,10 @@ export default function StrategyPage() {
       const res = await fetch("/api/strategy/generate", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ input: text }),
+        body:    JSON.stringify({
+          input: text,
+          previousStrategy: strategy ? { name: strategy.name, agents: agentBlocks } : undefined,
+        }),
       });
 
       let data: StrategyResponse | null = null;
@@ -159,8 +163,8 @@ export default function StrategyPage() {
       {/* Main: sidebar + canvas + chat */}
       <div className="flex flex-1 overflow-hidden">
 
-        {/* Left sidebar — agents only */}
-        <aside className="flex w-48 shrink-0 flex-col gap-2.5 overflow-y-auto border-r border-white/10 bg-[#0a1425] p-3">
+        {/* Left sidebar — agents + block palette */}
+        <aside className="flex w-52 shrink-0 flex-col gap-2.5 overflow-y-auto border-r border-white/10 bg-[#0a1425] p-3">
           <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
             <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-white/35">
               Agents
@@ -179,6 +183,10 @@ export default function StrategyPage() {
                 </span>
               </div>
             ))}
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+            <BlockPalette agentBlocks={agentBlocks} onAddBlock={handleBlocksChange} />
           </div>
         </aside>
 

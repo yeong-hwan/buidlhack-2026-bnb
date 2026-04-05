@@ -5,8 +5,12 @@ import {
   ReactFlow,
   Background,
   BackgroundVariant,
+  EdgeLabelRenderer,
+  BaseEdge,
+  getBezierPath,
   type Node,
   type Edge,
+  type EdgeProps,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import AgentZoneNode, { type AgentZoneData } from "./nodes/AgentZoneNode";
@@ -24,7 +28,6 @@ const AGENT_META: Record<AgentKey, { label: string; color: string; borderColor: 
   risk:    { label: "Risk Agent",   color: "#fb7185", borderColor: "#fb7185", bgColor: "rgba(251,113,133,0.04)" },
 };
 
-// DAG topology: data → alpha, alpha → manager, news → manager, manager → risk
 const DAG_EDGES: Array<{ source: AgentKey; target: AgentKey }> = [
   { source: "data",    target: "alpha"   },
   { source: "alpha",   target: "manager" },
@@ -32,7 +35,6 @@ const DAG_EDGES: Array<{ source: AgentKey; target: AgentKey }> = [
   { source: "manager", target: "risk"    },
 ];
 
-// Assign each agent to a column in the DAG
 const COLUMN: Record<AgentKey, number> = {
   data: 0, alpha: 1, news: 1, manager: 2, risk: 3,
 };
@@ -40,6 +42,58 @@ const COLUMN: Record<AgentKey, number> = {
 const COL_SPACING = 400;
 const NODE_GAP_Y = 60;
 const BLOCK_H = 44;
+
+// Extract signal label from emit blocks
+function getSignalLabel(blocks: StrategyBlock[], emitType: string): string | null {
+  const emit = blocks.find((b) => b.type === emitType);
+  if (!emit) return null;
+  const sig = emit.fields.SIGNAL;
+  return typeof sig === "string" ? sig : null;
+}
+
+const SIGNAL_COLORS: Record<string, string> = {
+  BUY: "#34d399", SELL: "#fb7185", HOLD: "#f59e0b",
+  BULLISH: "#34d399", BEARISH: "#fb7185", NEUTRAL: "#94a3b8",
+  RISK_ON: "#34d399", RISK_OFF: "#fb7185",
+};
+
+// Custom edge with signal label
+function SignalEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data, style }: EdgeProps) {
+  const [edgePath, labelX, labelY] = getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition });
+  const label = (data as Record<string, unknown>)?.signalLabel as string | undefined;
+  const labelColor = label ? (SIGNAL_COLORS[label] ?? "#94a3b8") : undefined;
+
+  return (
+    <>
+      <BaseEdge id={id} path={edgePath} style={style} />
+      {label && (
+        <EdgeLabelRenderer>
+          <div
+            style={{
+              position: "absolute",
+              transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
+              pointerEvents: "none",
+            }}
+            className="flex items-center gap-1 rounded-full px-2 py-0.5"
+          >
+            <span
+              className="h-1.5 w-1.5 rounded-full"
+              style={{ background: labelColor }}
+            />
+            <span
+              className="text-[9px] font-bold uppercase tracking-wider"
+              style={{ color: labelColor }}
+            >
+              {label}
+            </span>
+          </div>
+        </EdgeLabelRenderer>
+      )}
+    </>
+  );
+}
+
+const EDGE_TYPES = { signal: SignalEdge };
 
 function computeLayout(agentBlocks: AgentBlocks) {
   const allKeys = Object.keys(AGENT_META) as AgentKey[];
@@ -50,8 +104,6 @@ function computeLayout(agentBlocks: AgentBlocks) {
     return blockCount > 0 ? 70 + blockCount * BLOCK_H : 90;
   }
 
-  // Fixed positions per agent — always placed, never overlapping
-  // Column 0: data, Column 1: alpha + news, Column 2: manager, Column 3: risk
   const positions: Record<AgentKey, { x: number; y: number }> = {
     data:    { x: 0,                y: 0 },
     alpha:   { x: COL_SPACING,      y: 0 },
@@ -60,33 +112,44 @@ function computeLayout(agentBlocks: AgentBlocks) {
     risk:    { x: COL_SPACING * 3,  y: 0 },
   };
 
-  // Stack alpha + news vertically in column 1
   const alphaH = nodeHeight("alpha");
   const newsH = nodeHeight("news");
   const col1Total = alphaH + NODE_GAP_Y + newsH;
   positions.alpha.y = -col1Total / 2;
   positions.news.y = positions.alpha.y + alphaH + NODE_GAP_Y;
 
-  // Center single-agent columns with col1
   const col1Center = positions.alpha.y + col1Total / 2;
   positions.data.y = col1Center - nodeHeight("data") / 2;
   positions.manager.y = col1Center - nodeHeight("manager") / 2;
   positions.risk.y = col1Center - nodeHeight("risk") / 2;
 
-  // Edges: always show between active, plus dimmed edges for inactive
+  // Build edges with signal labels extracted from emit blocks
+  const emitMap: Record<string, string | null> = {
+    data:    getSignalLabel(agentBlocks.data ?? [],    "feed_emit"),
+    alpha:   getSignalLabel(agentBlocks.alpha ?? [],   "alpha_emit_signal"),
+    news:    getSignalLabel(agentBlocks.news ?? [],    "news_emit_signal"),
+    manager: null,
+    risk:    null,
+  };
+
   const edges: Edge[] = DAG_EDGES
     .filter((e) => active.includes(e.source) || active.includes(e.target))
     .map((e) => {
       const bothActive = active.includes(e.source) && active.includes(e.target);
+      const signalLabel = emitMap[e.source];
+      const signalColor = signalLabel ? (SIGNAL_COLORS[signalLabel] ?? AGENT_META[e.source].color) : AGENT_META[e.source].color;
+
       return {
         id: `${e.source}-${e.target}`,
         source: e.source,
         target: e.target,
+        type: "signal",
         animated: bothActive,
+        data: { signalLabel: bothActive ? signalLabel : null },
         style: {
-          stroke: AGENT_META[e.source].color,
-          strokeWidth: bothActive ? 2 : 1,
-          opacity: bothActive ? 0.6 : 0.15,
+          stroke: bothActive ? signalColor : AGENT_META[e.source].color,
+          strokeWidth: bothActive ? 2.5 : 1,
+          opacity: bothActive ? 0.7 : 0.15,
         },
       };
     });
@@ -138,6 +201,7 @@ export default function FlowCanvas({ agentBlocks, onBlocksChange }: FlowCanvasPr
       nodes={nodes}
       edges={edges}
       nodeTypes={NODE_TYPES}
+      edgeTypes={EDGE_TYPES}
       fitView
       fitViewOptions={{ padding: 0.35 }}
       minZoom={0.3}
