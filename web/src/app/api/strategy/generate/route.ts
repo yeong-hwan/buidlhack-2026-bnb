@@ -22,8 +22,71 @@ function has(lower: string, ...words: string[]): boolean {
   return words.some((w) => lower.includes(w));
 }
 
-function generateMockStrategy(input: string): StrategyGenerationResult {
+function hasKorean(text: string): boolean {
+  return /[\uAC00-\uD7A3\u1100-\u11FF\u3130-\u318F]/.test(text);
+}
+
+function generateMockStrategy(input: string, previousStrategy?: StrategyGenerationResult): StrategyGenerationResult {
   const lower = input.toLowerCase();
+
+  // If there is a previous strategy and the input looks like a modification request,
+  // start from the existing blocks and apply only the changed parameters.
+  if (previousStrategy) {
+    const isModification =
+      has(lower, "stop loss", "stop-loss", "손절", "스탑로스") ||
+      has(lower, "take profit", "익절", "테이크프로핏") ||
+      has(lower, "change", "modify", "update", "set", "바꿔", "변경", "수정", "줄여", "늘려", "높여", "낮춰");
+
+    if (isModification) {
+      // Deep-clone previous strategy agents
+      const agents: StrategyGenerationResult["agents"] = {
+        data:    previousStrategy.agents.data.map(b => ({ ...b, fields: { ...b.fields } })),
+        alpha:   previousStrategy.agents.alpha.map(b => ({ ...b, fields: { ...b.fields } })),
+        news:    previousStrategy.agents.news.map(b => ({ ...b, fields: { ...b.fields } })),
+        manager: previousStrategy.agents.manager.map(b => ({ ...b, fields: { ...b.fields } })),
+        risk:    previousStrategy.agents.risk.map(b => ({ ...b, fields: { ...b.fields } })),
+      };
+
+      // Apply stop loss modification
+      if (has(lower, "stop loss", "stop-loss", "손절", "스탑로스")) {
+        const pctMatch = input.match(/(\d+(?:\.\d+)?)\s*%/);
+        if (pctMatch) {
+          const pct = parseFloat(pctMatch[1]);
+          const slBlock = agents.risk.find(b => b.type === "risk_set_stop_loss");
+          if (slBlock) {
+            slBlock.fields = { ...slBlock.fields, PCT: pct };
+          } else {
+            agents.risk.unshift({ type: "risk_set_stop_loss", fields: { PCT: pct } });
+          }
+        }
+      }
+
+      // Apply take profit modification
+      if (has(lower, "take profit", "익절", "테이크프로핏")) {
+        const pctMatch = input.match(/(\d+(?:\.\d+)?)\s*%/);
+        if (pctMatch) {
+          const pct = parseFloat(pctMatch[1]);
+          const tpBlock = agents.risk.find(b => b.type === "risk_set_take_profit");
+          if (tpBlock) {
+            tpBlock.fields = { ...tpBlock.fields, PCT: pct };
+          } else {
+            agents.risk.push({ type: "risk_set_take_profit", fields: { PCT: pct } });
+          }
+        }
+      }
+
+      const isKorean = hasKorean(input);
+      const description = isKorean
+        ? `기존 전략에서 요청하신 항목을 수정했습니다: ${input.trim()}`
+        : `Modified the existing strategy as requested: ${input.trim()}`;
+
+      return validateStrategyResult({
+        name: previousStrategy.name,
+        description,
+        agents,
+      });
+    }
+  }
 
   const data: StrategyBlock[] = [];
   const alpha: StrategyBlock[] = [];

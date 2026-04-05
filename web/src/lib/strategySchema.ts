@@ -110,8 +110,11 @@ RULES:
 10. If description hints at AI/autonomous, use alpha_ai_decide and/or news_semantic_filter.
 11. Respond in the same language as the user input for the "description" field.
 12. Description should explain the strategy flow conversationally (2-3 sentences).
+13. Block ordering within each agent MUST follow logical pipeline order: trigger/condition blocks first (types starting with "when_", "on_", or "if_"), then processing/action blocks in the middle, then emit/output blocks last (types ending with "_emit" or "_emit_signal"). This ensures correct visual flow in the DAG.
+14. MODIFICATION RULE: When the user provides a modification request (e.g., "change stop loss to 5%"), only modify the specified parameter — keep everything else exactly the same.
+15. CURRENT STRATEGY RULE: If a "CURRENT STRATEGY" section is present in the user message, treat it as the base to modify. Copy all agents and blocks from it unchanged, then apply only the changes the user explicitly requested.
 
-EXAMPLE (for reference):
+EXAMPLE 1 — Macro + News momentum strategy:
 Input: "Buy BNB when NASDAQ rises and news is bullish, stop loss 10%"
 Output:
 {
@@ -138,6 +141,39 @@ Output:
       {"type":"risk_set_stop_loss","fields":{"PCT":10}},
       {"type":"risk_set_take_profit","fields":{"PCT":25}},
       {"type":"risk_max_position","fields":{"MAX_USDT":500}}
+    ]
+  }
+}
+
+EXAMPLE 2 — Autonomous AI rebalance strategy:
+Input: "Let AI decide when to rebalance my BNB/ETH portfolio, keep drawdown under 15%"
+Output:
+{
+  "name": "AI Portfolio Rebalance",
+  "description": "AI 에이전트가 시장 상황을 분석해 BNB와 ETH 비중을 자율적으로 조정합니다. 최대 낙폭 15% 이내로 리스크를 관리하며 포지션 한도를 설정합니다.",
+  "agents": {
+    "data": [
+      {"type":"feed_vix","fields":{"OPERATOR":">=","THRESHOLD":20}},
+      {"type":"feed_fear_greed","fields":{"ZONE":"fear"}},
+      {"type":"feed_emit","fields":{"SIGNAL":"RISK_OFF"}}
+    ],
+    "alpha": [
+      {"type":"alpha_ai_decide","fields":{"CONTEXT":"all_data","CONFIDENCE":70}},
+      {"type":"alpha_emit_signal","fields":{"SIGNAL":"HOLD","STRENGTH":65}}
+    ],
+    "news": [
+      {"type":"news_semantic_filter","fields":{"QUERY":"portfolio rebalance market signal","THRESHOLD":0.7}},
+      {"type":"news_emit_signal","fields":{"SIGNAL":"NEUTRAL"}}
+    ],
+    "manager": [
+      {"type":"mgr_on_signal","fields":{"SIGNAL":"BUY"}},
+      {"type":"mgr_rebalance","fields":{"TOKEN":"BNB","TARGET_PCT":50}},
+      {"type":"mgr_repeat","fields":{"N":7,"UNIT":"days"}}
+    ],
+    "risk": [
+      {"type":"risk_set_stop_loss","fields":{"PCT":8}},
+      {"type":"risk_max_drawdown","fields":{"PCT":15}},
+      {"type":"risk_max_position","fields":{"MAX_USDT":1000}}
     ]
   }
 }
@@ -177,6 +213,15 @@ export function validateStrategyResult(raw: unknown): StrategyGenerationResult {
   return { name: obj.name, description: obj.description, agents: validAgents };
 }
 
+function blockSortOrder(type: string): number {
+  // Triggers first: types containing "when_" or "on_" (e.g. alpha_when_momentum, mgr_on_signal, news_when_sentiment)
+  if (type.includes("when_") || type.includes("on_")) return 0;
+  // Emit/output last: types ending with "_emit" or "_emit_signal" (e.g. feed_emit, alpha_emit_signal)
+  if (type.endsWith("_emit") || type.endsWith("_emit_signal")) return 2;
+  // Processing/action blocks in the middle
+  return 1;
+}
+
 function validateBlockArray(raw: unknown, agentKey: string): StrategyBlock[] {
   if (!Array.isArray(raw)) return [];
   return raw
@@ -191,5 +236,6 @@ function validateBlockArray(raw: unknown, agentKey: string): StrategyBlock[] {
       if (typeof block.fields !== "object" || block.fields === null) return false;
       return true;
     })
+    .sort((a, b) => blockSortOrder(a.type) - blockSortOrder(b.type))
     .slice(0, 5); // max 5 blocks per agent
 }
