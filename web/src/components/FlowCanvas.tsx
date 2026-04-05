@@ -166,6 +166,7 @@ export default function FlowCanvas({ agentBlocks, onBlocksChange }: FlowCanvasPr
           position: positions[key],
           data,
           draggable: true,
+          dragHandle: ".zone-drag-handle",
           style: isActive ? undefined : { opacity: 0.25 },
         };
       }),

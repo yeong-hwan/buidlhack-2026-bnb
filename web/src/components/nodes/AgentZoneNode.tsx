@@ -137,9 +137,9 @@ function AgentZoneNode({ data }: NodeProps) {
         boxShadow: `0 0 40px ${d.borderColor}12`,
       }}
     >
-      {/* Zone header */}
+      {/* Zone header — drag handle for moving the zone */}
       <div
-        className="flex items-center justify-between rounded-t-2xl px-4 py-2"
+        className="zone-drag-handle flex cursor-grab items-center justify-between rounded-t-2xl px-4 py-2 active:cursor-grabbing"
         style={{ borderBottom: `1px solid ${d.borderColor}25` }}
       >
         <div className="flex items-center gap-2">
