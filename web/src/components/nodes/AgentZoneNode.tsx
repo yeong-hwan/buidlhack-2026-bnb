@@ -20,6 +20,7 @@ import { CSS } from "@dnd-kit/utilities";
 import BlockCard from "@/components/BlockCard";
 import BlockPicker from "@/components/BlockPicker";
 import { useState } from "react";
+import type { BlockError } from "@/lib/blockValidator";
 
 export type AgentZoneData = {
   label: string;
@@ -28,6 +29,7 @@ export type AgentZoneData = {
   borderColor: string;
   bgColor: string;
   blocks: Array<{ type: string; fields: Record<string, string | number>; children?: Array<{ type: string; fields: Record<string, string | number> }> }>;
+  errors: BlockError[];
   onBlocksChange: (agentKey: string, blocks: AgentZoneData["blocks"]) => void;
 };
 
@@ -185,6 +187,26 @@ function AgentZoneNode({ data }: NodeProps) {
           </DndContext>
         )}
       </div>
+
+      {/* Validation errors */}
+      {d.errors.length > 0 && (
+        <div className="mx-2 mb-2 flex flex-col gap-1">
+          {d.errors.map((err, i) => (
+            <div
+              key={i}
+              className="flex items-start gap-1.5 rounded-lg px-2.5 py-1.5 text-[10px]"
+              style={{
+                background: err.severity === "error" ? "rgba(239,68,68,0.15)" : "rgba(245,158,11,0.15)",
+                border: `1px solid ${err.severity === "error" ? "rgba(239,68,68,0.3)" : "rgba(245,158,11,0.3)"}`,
+                color: err.severity === "error" ? "#fca5a5" : "#fcd34d",
+              }}
+            >
+              <span className="shrink-0 font-bold">{err.severity === "error" ? "E" : "W"}</span>
+              <span>{err.message}</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Picker dropdown */}
       {showPicker && (

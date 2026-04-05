@@ -15,6 +15,7 @@ import {
 import "@xyflow/react/dist/style.css";
 import AgentZoneNode, { type AgentZoneData } from "./nodes/AgentZoneNode";
 import type { AgentBlocks, StrategyBlock } from "@/app/api/strategy/route";
+import { validateStrategy } from "@/lib/blockValidator";
 
 const NODE_TYPES = { agentZone: AgentZoneNode };
 
@@ -173,15 +174,19 @@ export default function FlowCanvas({ agentBlocks, onBlocksChange }: FlowCanvasPr
     [agentBlocks]
   );
 
+  const allErrors = useMemo(() => validateStrategy(agentBlocks), [agentBlocks]);
+
   const nodes: Node[] = useMemo(
     () =>
       (Object.keys(AGENT_META) as AgentKey[]).map((key) => {
         const meta = AGENT_META[key];
         const isActive = active.includes(key);
+        const agentErrors = allErrors.filter((e) => e.agent === key);
         const data: AgentZoneData = {
           ...meta,
           agentKey: key,
           blocks: agentBlocks[key] ?? [],
+          errors: agentErrors,
           onBlocksChange: handleBlocksChange,
         };
         return {
@@ -193,7 +198,7 @@ export default function FlowCanvas({ agentBlocks, onBlocksChange }: FlowCanvasPr
           style: isActive ? undefined : { opacity: 0.3 },
         };
       }),
-    [agentBlocks, handleBlocksChange, positions, active]
+    [agentBlocks, handleBlocksChange, positions, active, allErrors]
   );
 
   return (
