@@ -1,147 +1,137 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 import {
   ReactFlow,
   Background,
   BackgroundVariant,
-  addEdge,
-  useNodesState,
-  useEdgesState,
   type Node,
   type Edge,
-  type Connection,
   type EdgeProps,
   EdgeLabelRenderer,
   BaseEdge,
-  getBezierPath,
+  getSmoothStepPath,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import BlockNode, { type BlockNodeData } from "./nodes/BlockNode";
-import { getBlockDef } from "@/lib/blockRegistry";
+import AgentZoneNode, { type AgentZoneData } from "./nodes/AgentZoneNode";
 import type { AgentBlocks, StrategyBlock } from "@/app/api/strategy/route";
+import { validateStrategy } from "@/lib/blockValidator";
 
-const NODE_TYPES = { block: BlockNode };
+const NODE_TYPES = { agentZone: AgentZoneNode };
 
 type AgentKey = keyof AgentBlocks;
 
-const AGENT_COLORS: Record<string, string> = {
-  data:    "#f59e0b",
-  alpha:   "#22d3ee",
-  news:    "#a78bfa",
-  manager: "#34d399",
-  risk:    "#fb7185",
+const AGENT_META: Record<AgentKey, { label: string; color: string; borderColor: string; bgColor: string }> = {
+  data:    { label: "Data Feed",    color: "#f59e0b", borderColor: "#f59e0b", bgColor: "rgba(245,158,11,0.04)" },
+  alpha:   { label: "Alpha Agent",  color: "#22d3ee", borderColor: "#22d3ee", bgColor: "rgba(34,211,238,0.04)" },
+  news:    { label: "News Agent",   color: "#a78bfa", borderColor: "#a78bfa", bgColor: "rgba(167,139,250,0.04)" },
+  manager: { label: "Manager",      color: "#34d399", borderColor: "#34d399", bgColor: "rgba(52,211,153,0.04)" },
+  risk:    { label: "Risk Agent",   color: "#fb7185", borderColor: "#fb7185", bgColor: "rgba(251,113,133,0.04)" },
 };
 
-// Column layout for auto-positioning
-const AGENT_COL: Record<string, number> = {
-  data: 0, alpha: 1, news: 1, manager: 2, risk: 3,
-};
-const AGENT_ROW_OFFSET: Record<string, number> = {
-  data: 0, alpha: -1, news: 1, manager: 0, risk: 0,
-};
+// Signal-labeled edge
+function SignalEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data, style }: EdgeProps) {
+  const [edgePath, labelX, labelY] = getSmoothStepPath({
+    sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition,
+    borderRadius: 20,
+  });
+  const label = (data as Record<string, unknown>)?.signalLabel as string | undefined;
+  const SIGNAL_COLORS: Record<string, string> = {
+    BUY: "#34d399", SELL: "#fb7185", HOLD: "#f59e0b",
+    BULLISH: "#34d399", BEARISH: "#fb7185", NEUTRAL: "#94a3b8",
+    RISK_ON: "#34d399", RISK_OFF: "#fb7185",
+  };
+  const labelColor = label ? (SIGNAL_COLORS[label] ?? "#94a3b8") : undefined;
 
-const COL_SPACING = 320;
-const ROW_SPACING = 80;
-const BLOCK_HEIGHT = 60;
-
-// Custom signal edge
-function SignalEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, style }: EdgeProps) {
-  const [edgePath] = getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition });
-  return <BaseEdge id={id} path={edgePath} style={style} />;
+  return (
+    <>
+      <BaseEdge id={id} path={edgePath} style={style} />
+      {label && (
+        <EdgeLabelRenderer>
+          <div style={{ position: "absolute", transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`, pointerEvents: "none" }}>
+            <span className="rounded-full px-2 py-0.5 text-[9px] font-bold uppercase" style={{ color: labelColor, background: "rgba(8,17,31,0.8)" }}>
+              {label}
+            </span>
+          </div>
+        </EdgeLabelRenderer>
+      )}
+    </>
+  );
 }
 
 const EDGE_TYPES = { signal: SignalEdge };
 
-// Convert AgentBlocks to canvas nodes + edges
-function agentBlocksToCanvas(
-  agentBlocks: AgentBlocks,
-  onFieldChange: (nodeId: string, fields: Record<string, string | number>) => void,
-  onDelete: (nodeId: string) => void,
-): { nodes: Node[]; edges: Edge[] } {
-  const nodes: Node[] = [];
-  const edges: Edge[] = [];
-  const emitNodes: Record<string, string> = {}; // agent → nodeId of emit block
-  const receiveNodes: Record<string, string> = {}; // agent → nodeId of first block
+// DAG connections
+const DAG_EDGES: Array<{ source: AgentKey; target: AgentKey }> = [
+  { source: "data", target: "alpha" },
+  { source: "alpha", target: "manager" },
+  { source: "news", target: "manager" },
+  { source: "manager", target: "risk" },
+];
 
-  for (const [agentKey, blocks] of Object.entries(agentBlocks) as [AgentKey, StrategyBlock[]][]) {
-    if (!blocks || blocks.length === 0) continue;
-    const color = AGENT_COLORS[agentKey] ?? "#888";
-    const col = AGENT_COL[agentKey] ?? 0;
-    const rowOffset = AGENT_ROW_OFFSET[agentKey] ?? 0;
+const BLOCK_H = 48;
+const COL_SPACING = 380;
+const ROW_GAP = 50;
 
-    blocks.forEach((block, idx) => {
-      const nodeId = `${agentKey}-${idx}`;
-      const x = col * COL_SPACING + 50;
-      const y = rowOffset * ROW_SPACING * 2 + idx * BLOCK_HEIGHT + 50;
+function getSignalLabel(blocks: StrategyBlock[], emitType: string): string | null {
+  const emit = blocks.find((b) => b.type === emitType);
+  return emit ? String(emit.fields.SIGNAL ?? "") : null;
+}
 
-      const data: BlockNodeData = {
-        blockType: block.type,
-        fields: block.fields,
-        color,
-        onFieldChange,
-        onDelete,
-      };
+function computeLayout(agentBlocks: AgentBlocks) {
+  const allKeys = Object.keys(AGENT_META) as AgentKey[];
+  const active = allKeys.filter((k) => (agentBlocks[k]?.length ?? 0) > 0);
 
-      nodes.push({
-        id: nodeId,
-        type: "block",
-        position: { x, y },
-        data,
-        draggable: true,
-      });
-
-      // Connect blocks within same agent (sequential)
-      if (idx > 0) {
-        edges.push({
-          id: `${agentKey}-${idx - 1}-${idx}`,
-          source: `${agentKey}-${idx - 1}`,
-          target: nodeId,
-          type: "signal",
-          animated: false,
-          style: { stroke: color, strokeWidth: 2, opacity: 0.5 },
-        });
-      }
-
-      // Track emit and receive blocks for cross-agent edges
-      if (block.type.includes("emit") || block.type === "feed_emit") {
-        emitNodes[agentKey] = nodeId;
-      }
-      if (idx === 0) {
-        receiveNodes[agentKey] = nodeId;
-      }
-    });
+  function nodeHeight(k: AgentKey): number {
+    return 56 + Math.max(1, agentBlocks[k]?.length ?? 0) * BLOCK_H;
   }
 
-  // Cross-agent edges: data→alpha, alpha→manager, news→manager, manager→risk
-  const crossLinks: [string, string][] = [
-    ["data", "alpha"],
-    ["alpha", "manager"],
-    ["news", "manager"],
-    ["manager", "risk"],
-  ];
+  // Column assignments
+  const COL: Record<AgentKey, number> = { data: 0, alpha: 1, news: 1, manager: 2, risk: 3 };
 
-  for (const [from, to] of crossLinks) {
-    const sourceId = emitNodes[from];
-    const targetId = receiveNodes[to];
-    if (sourceId && targetId) {
-      edges.push({
-        id: `cross-${from}-${to}`,
-        source: sourceId,
-        target: targetId,
+  // Stack alpha + news vertically
+  const alphaH = nodeHeight("alpha");
+  const newsH = nodeHeight("news");
+  const col1Total = alphaH + ROW_GAP + newsH;
+  const alphaY = -col1Total / 2;
+  const newsY = alphaY + alphaH + ROW_GAP;
+  const center = alphaY + col1Total / 2;
+
+  const positions: Record<AgentKey, { x: number; y: number }> = {
+    data:    { x: COL.data * COL_SPACING,    y: center - nodeHeight("data") / 2 },
+    alpha:   { x: COL.alpha * COL_SPACING,   y: alphaY },
+    news:    { x: COL.news * COL_SPACING,    y: newsY },
+    manager: { x: COL.manager * COL_SPACING, y: center - nodeHeight("manager") / 2 },
+    risk:    { x: COL.risk * COL_SPACING,    y: center - nodeHeight("risk") / 2 },
+  };
+
+  // Edges with signals
+  const emitMap: Record<string, string | null> = {
+    data:  getSignalLabel(agentBlocks.data ?? [], "feed_emit"),
+    alpha: getSignalLabel(agentBlocks.alpha ?? [], "alpha_emit_signal"),
+    news:  getSignalLabel(agentBlocks.news ?? [], "news_emit_signal"),
+  };
+
+  const edges: Edge[] = DAG_EDGES
+    .filter((e) => active.includes(e.source) || active.includes(e.target))
+    .map((e) => {
+      const both = active.includes(e.source) && active.includes(e.target);
+      const sig = emitMap[e.source] ?? null;
+      const SIGNAL_COLORS: Record<string, string> = { BUY: "#34d399", SELL: "#fb7185", BULLISH: "#34d399", BEARISH: "#fb7185", RISK_ON: "#34d399", RISK_OFF: "#fb7185" };
+      const strokeColor = both && sig ? (SIGNAL_COLORS[sig] ?? AGENT_META[e.source as AgentKey].color) : AGENT_META[e.source as AgentKey].color;
+
+      return {
+        id: `${e.source}-${e.target}`,
+        source: e.source,
+        target: e.target,
         type: "signal",
-        animated: true,
-        style: {
-          stroke: AGENT_COLORS[from],
-          strokeWidth: 2.5,
-          opacity: 0.7,
-          strokeDasharray: "8 4",
-        },
-      });
-    }
-  }
+        animated: both,
+        data: { signalLabel: both ? sig : null },
+        style: { stroke: strokeColor, strokeWidth: both ? 2 : 1, opacity: both ? 0.6 : 0.12 },
+      };
+    });
 
-  return { nodes, edges };
+  return { positions, edges, active };
 }
 
 interface FlowCanvasProps {
@@ -150,86 +140,51 @@ interface FlowCanvasProps {
 }
 
 export default function FlowCanvas({ agentBlocks, onBlocksChange }: FlowCanvasProps) {
-  const handleFieldChange = useCallback((nodeId: string, fields: Record<string, string | number>) => {
-    const [agentKey, idxStr] = nodeId.split("-");
-    const idx = parseInt(idxStr);
-    const blocks = [...(agentBlocks[agentKey as AgentKey] ?? [])];
-    if (blocks[idx]) {
-      blocks[idx] = { ...blocks[idx], fields };
-      onBlocksChange(agentKey, blocks);
-    }
-  }, [agentBlocks, onBlocksChange]);
+  const handleBlocksChange = useCallback(
+    (agentKey: string, blocks: StrategyBlock[]) => onBlocksChange(agentKey, blocks),
+    [onBlocksChange]
+  );
 
-  const handleDelete = useCallback((nodeId: string) => {
-    const [agentKey, idxStr] = nodeId.split("-");
-    const idx = parseInt(idxStr);
-    const blocks = (agentBlocks[agentKey as AgentKey] ?? []).filter((_, i) => i !== idx);
-    onBlocksChange(agentKey, blocks);
-  }, [agentBlocks, onBlocksChange]);
+  const { positions, edges, active } = useMemo(() => computeLayout(agentBlocks), [agentBlocks]);
+  const allErrors = useMemo(() => validateStrategy(agentBlocks), [agentBlocks]);
 
-  const { nodes: initialNodes, edges: initialEdges } = useMemo(
-    () => agentBlocksToCanvas(agentBlocks, handleFieldChange, handleDelete),
-    [agentBlocks, handleFieldChange, handleDelete]
+  const nodes: Node[] = useMemo(
+    () =>
+      (Object.keys(AGENT_META) as AgentKey[]).map((key) => {
+        const meta = AGENT_META[key];
+        const isActive = active.includes(key);
+        const data: AgentZoneData = {
+          ...meta,
+          agentKey: key,
+          blocks: agentBlocks[key] ?? [],
+          errors: allErrors.filter((e) => e.agent === key),
+          onBlocksChange: handleBlocksChange,
+        };
+        return {
+          id: key,
+          type: "agentZone",
+          position: positions[key],
+          data,
+          draggable: true,
+          style: isActive ? undefined : { opacity: 0.25 },
+        };
+      }),
+    [agentBlocks, handleBlocksChange, positions, active, allErrors]
   );
 
   return (
     <ReactFlow
-      nodes={initialNodes}
-      edges={initialEdges}
+      nodes={nodes}
+      edges={edges}
       nodeTypes={NODE_TYPES}
       edgeTypes={EDGE_TYPES}
       fitView
-      fitViewOptions={{ padding: 0.4 }}
+      fitViewOptions={{ padding: 0.3 }}
       minZoom={0.2}
-      maxZoom={3}
+      maxZoom={2.5}
       proOptions={{ hideAttribution: true }}
-      defaultEdgeOptions={{ type: "signal" }}
     >
       <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="rgba(255,255,255,0.06)" />
-
-      {/* Agent labels as background annotations */}
-      <AgentLabels agentBlocks={agentBlocks} />
     </ReactFlow>
-  );
-}
-
-// Floating agent labels behind blocks
-function AgentLabels({ agentBlocks }: { agentBlocks: AgentBlocks }) {
-  const labels: Record<string, string> = {
-    data: "DATA FEED", alpha: "ALPHA", news: "NEWS", manager: "MANAGER", risk: "RISK",
-  };
-
-  return (
-    <>
-      {(Object.entries(agentBlocks) as [AgentKey, StrategyBlock[]][]).map(([key, blocks]) => {
-        if (!blocks || blocks.length === 0) return null;
-        const col = AGENT_COL[key] ?? 0;
-        const rowOffset = AGENT_ROW_OFFSET[key] ?? 0;
-        const x = col * COL_SPACING + 50;
-        const y = rowOffset * ROW_SPACING * 2 + 20;
-        const color = AGENT_COLORS[key];
-
-        return (
-          <div
-            key={key}
-            className="react-flow__panel"
-            style={{
-              position: "absolute",
-              left: x,
-              top: y,
-              color: `${color}30`,
-              fontSize: 11,
-              fontWeight: 800,
-              letterSpacing: "0.15em",
-              pointerEvents: "none",
-              userSelect: "none",
-              zIndex: -1,
-            }}
-          >
-            {labels[key]}
-          </div>
-        );
-      })}
-    </>
   );
 }
