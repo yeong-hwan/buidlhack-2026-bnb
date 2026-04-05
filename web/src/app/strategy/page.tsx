@@ -36,7 +36,9 @@ const DEFAULT_AGENTS: AgentBlocks = {
   ],
   manager: [
     { type: "mgr_on_signal", fields: { SIGNAL: "BUY" } },
-    { type: "mgr_buy",       fields: { AMOUNT: 100, TOKEN: "BNB", DEX: "pancake" } },
+    { type: "mgr_repeat", fields: { N: 1, UNIT: "weeks" }, children: [
+      { type: "mgr_buy", fields: { AMOUNT: 100, TOKEN: "BNB", DEX: "pancake" } },
+    ]},
   ],
   risk: [
     { type: "risk_set_stop_loss",   fields: { PCT: 10 } },

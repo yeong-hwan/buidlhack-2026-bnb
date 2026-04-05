@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 export interface StrategyBlock {
   type: string;
   fields: Record<string, string | number>;
+  children?: StrategyBlock[];
 }
 
 export interface AgentBlocks {
