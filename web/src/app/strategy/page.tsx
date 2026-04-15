@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useState, useTransition, useCallback } from "react";
 import { useAccount, useConnect } from "wagmi";
 import type { StrategyResponse, StrategyBlock, AgentBlocks } from "@/app/api/strategy/route";
+import type { ModelValue } from "@/components/nodes/AgentZoneNode";
 import ChatThread, { type ChatMessage } from "@/components/ChatThread";
 import BlockPalette from "@/components/BlockPalette";
 
@@ -60,8 +61,17 @@ export default function StrategyPage() {
   const [deploying, setDeploying]     = useState(false);
   const [deployTx, setDeployTx]       = useState<string | null>(null);
 
+  const [agentModels, setAgentModels] = useState<Record<string, ModelValue>>({
+    data: "gpt-4o-mini", alpha: "gpt-4o-mini", news: "gpt-4o-mini",
+    manager: "gpt-4o-mini", risk: "gpt-4o-mini",
+  });
+
   const { isConnected } = useAccount();
   const { connect, connectors } = useConnect();
+
+  const handleModelChange = useCallback((agentKey: string, model: ModelValue) => {
+    setAgentModels((prev) => ({ ...prev, [agentKey]: model }));
+  }, []);
 
   async function generate(text: string) {
     if (!text.trim()) return;
@@ -264,7 +274,12 @@ export default function StrategyPage() {
 
         {/* DAG Canvas */}
         <div className="relative flex-1 overflow-hidden">
-          <FlowCanvas agentBlocks={agentBlocks} onBlocksChange={handleBlocksChange} />
+          <FlowCanvas
+            agentBlocks={agentBlocks}
+            agentModels={agentModels}
+            onBlocksChange={handleBlocksChange}
+            onModelChange={handleModelChange}
+          />
         </div>
 
         {/* Right: Chat Thread */}

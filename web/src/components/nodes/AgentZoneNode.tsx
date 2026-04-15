@@ -22,6 +22,13 @@ import BlockPicker from "@/components/BlockPicker";
 import { useState } from "react";
 import type { BlockError } from "@/lib/blockValidator";
 
+const AI_MODELS = [
+  { value: "gpt-4o-mini",        label: "GPT-4o mini",   short: "GPT" },
+  { value: "claude-sonnet-4-6",  label: "Claude Sonnet", short: "Claude" },
+] as const;
+
+export type ModelValue = (typeof AI_MODELS)[number]["value"];
+
 export type AgentZoneData = {
   label: string;
   agentKey: string;
@@ -30,7 +37,9 @@ export type AgentZoneData = {
   bgColor: string;
   blocks: Array<{ type: string; fields: Record<string, string | number>; children?: Array<{ type: string; fields: Record<string, string | number> }> }>;
   errors: BlockError[];
+  model: ModelValue;
   onBlocksChange: (agentKey: string, blocks: AgentZoneData["blocks"]) => void;
+  onModelChange: (agentKey: string, model: ModelValue) => void;
   onDuplicate?: (agentKey: string) => void;
 };
 
@@ -151,6 +160,25 @@ function AgentZoneNode({ data }: NodeProps) {
           )}
         </div>
         <div className="flex items-center gap-1">
+          {/* Model selector */}
+          <select
+            value={d.model}
+            onChange={(e) => d.onModelChange(d.agentKey, e.target.value as ModelValue)}
+            onPointerDown={(e) => e.stopPropagation()}
+            className="rounded px-1.5 py-0.5 text-[9px] font-medium outline-none cursor-pointer"
+            style={{
+              background: `${d.color}18`,
+              border: `1px solid ${d.color}35`,
+              color: `${d.color}cc`,
+            }}
+            title="AI model for this agent"
+          >
+            {AI_MODELS.map((m) => (
+              <option key={m.value} value={m.value} className="bg-[#0d1727] text-white">
+                {m.short}
+              </option>
+            ))}
+          </select>
           {d.onDuplicate && (
             <button
               onClick={(e) => { e.stopPropagation(); d.onDuplicate!(d.agentKey); }}

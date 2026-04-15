@@ -17,7 +17,7 @@ import {
   getSmoothStepPath,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import AgentZoneNode, { type AgentZoneData } from "./nodes/AgentZoneNode";
+import AgentZoneNode, { type AgentZoneData, type ModelValue } from "./nodes/AgentZoneNode";
 import type { AgentBlocks, StrategyBlock } from "@/app/api/strategy/route";
 import { validateStrategy } from "@/lib/blockValidator";
 
@@ -64,7 +64,11 @@ function getSignalLabel(blocks: StrategyBlock[], emitType: string): string | nul
   return e ? String(e.fields.SIGNAL ?? "") : null;
 }
 
-function buildInitialLayout(agentBlocks: AgentBlocks, callbacks: { onBlocksChange: AgentZoneData["onBlocksChange"] }): { nodes: Node[]; edges: Edge[] } {
+function buildInitialLayout(
+  agentBlocks: AgentBlocks,
+  agentModels: Record<string, ModelValue>,
+  callbacks: { onBlocksChange: AgentZoneData["onBlocksChange"]; onModelChange: AgentZoneData["onModelChange"] }
+): { nodes: Node[]; edges: Edge[] } {
   const allKeys = Object.keys(AGENT_META) as AgentKey[];
   const active = allKeys.filter((k) => (agentBlocks[k]?.length ?? 0) > 0);
   const errors = validateStrategy(agentBlocks);
@@ -98,7 +102,9 @@ function buildInitialLayout(agentBlocks: AgentBlocks, callbacks: { onBlocksChang
       ...meta, agentKey: key,
       blocks: agentBlocks[key] ?? [],
       errors: errors.filter((e) => e.agent === key),
+      model: agentModels[key] ?? "gpt-4o-mini",
       onBlocksChange: callbacks.onBlocksChange,
+      onModelChange: callbacks.onModelChange,
     };
     return {
       id: key, type: "agentZone", position: pos[key], data,
@@ -122,13 +128,19 @@ function buildInitialLayout(agentBlocks: AgentBlocks, callbacks: { onBlocksChang
 
 interface FlowCanvasProps {
   agentBlocks: AgentBlocks;
+  agentModels: Record<string, ModelValue>;
   onBlocksChange: (agentKey: string, blocks: StrategyBlock[]) => void;
+  onModelChange: (agentKey: string, model: ModelValue) => void;
 }
 
-export default function FlowCanvas({ agentBlocks, onBlocksChange }: FlowCanvasProps) {
+export default function FlowCanvas({ agentBlocks, agentModels, onBlocksChange, onModelChange }: FlowCanvasProps) {
   const handleBlocksChange = useCallback(
     (agentKey: string, blocks: StrategyBlock[]) => onBlocksChange(agentKey, blocks),
     [onBlocksChange]
+  );
+  const handleModelChange = useCallback(
+    (agentKey: string, model: ModelValue) => onModelChange(agentKey, model),
+    [onModelChange]
   );
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([] as Node[]);
@@ -137,7 +149,7 @@ export default function FlowCanvas({ agentBlocks, onBlocksChange }: FlowCanvasPr
 
   // Rebuild nodes when agentBlocks change, but PRESERVE user-dragged positions
   useEffect(() => {
-    const { nodes: newNodes, edges: newEdges } = buildInitialLayout(agentBlocks, { onBlocksChange: handleBlocksChange });
+    const { nodes: newNodes, edges: newEdges } = buildInitialLayout(agentBlocks, agentModels, { onBlocksChange: handleBlocksChange, onModelChange: handleModelChange });
 
     if (!initialized.current) {
       setNodes(newNodes);
@@ -153,7 +165,7 @@ export default function FlowCanvas({ agentBlocks, onBlocksChange }: FlowCanvasPr
       );
       setEdges(newEdges);
     }
-  }, [agentBlocks, handleBlocksChange, setNodes, setEdges]);
+  }, [agentBlocks, agentModels, handleBlocksChange, handleModelChange, setNodes, setEdges]);
 
   return (
     <ReactFlow
