@@ -139,6 +139,17 @@ function generateMockStrategy(input: string, previousStrategy?: StrategyGenerati
   // Each trigger is a C-BLOCK that wraps its own actions
   const amount = isAggressive ? 200 : isConservative ? 50 : 100;
 
+  if (hasNewsLayer && alpha.length > 0 && !manager.some(b => b.type === "mgr_combine")) {
+    if (has(lower, "both", "and condition", "combine", "둘 다", "동시에")) {
+      const newsSignal = has(lower, "bearish") ? "BEARISH" : "BULLISH";
+      manager.push({
+        type: "mgr_combine", fields: { ALPHA: alphaSignal, NEWS: newsSignal }, children: [
+          { type: "mgr_buy", fields: { AMOUNT: amount, TOKEN: token, DEX: "pancake" } },
+        ],
+      });
+    }
+  }
+
   if (has(lower, "schedule", "repeat", "every", "periodic", "주기", "매일", "매주", "daily", "weekly", "dca")) {
     // Time-based schedule — independent of signals
     const unit = has(lower, "hour", "시간") ? "hours" : has(lower, "week", "주", "weekly") ? "weeks" : "days";

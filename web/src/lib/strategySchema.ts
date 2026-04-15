@@ -56,6 +56,7 @@ export const BLOCK_TYPES = {
   mgr_on_news:   { SIGNAL: "BULLISH|BEARISH|NEUTRAL" },
   mgr_on_data:   { SIGNAL: "RISK_ON|RISK_OFF|NEUTRAL" },
   mgr_schedule:  { N: "number", UNIT: "hours|days|weeks" },
+  mgr_combine:   { ALPHA: "BUY|SELL|HOLD", NEWS: "BULLISH|BEARISH|NEUTRAL" },
   mgr_if_signal: { SIGNAL: "BUY|SELL|HOLD|BULLISH|BEARISH|RISK_ON|RISK_OFF" },
   mgr_buy:       { AMOUNT: "number", TOKEN: "BNB|ETH|BTC", DEX: "pancake|market" },
   mgr_sell:      { AMOUNT_PCT: "number(1-100)", TOKEN: "BNB|ETH|BTC" },
@@ -110,6 +111,7 @@ RULES:
 8. Only include news blocks if the description mentions news/sentiment/social.
 9. Only include data blocks if the description mentions macro signals (price change, VIX, volatility).
 10. mgr_on_alpha, mgr_on_news, mgr_on_data, mgr_schedule, mgr_if_signal are C-BLOCKs — their "children" array holds nested action blocks.
+11b. mgr_combine is a C-BLOCK — executes children only when BOTH alpha signal matches ALPHA field AND news signal matches NEWS field (AND logic).
 11. risk_if_drawdown is a C-BLOCK — its "children" array holds protective action blocks (e.g. risk_cooldown).
 12. Respond in the same language as the user for the "description" field.
 13. Block order within each agent: trigger/condition blocks first, actions in the middle, emit last.
@@ -245,7 +247,7 @@ function blockSortOrder(type: string): number {
   // Trigger/condition blocks first
   if (
     type.includes("when_") ||
-    type === "mgr_on_alpha" || type === "mgr_on_news" || type === "mgr_on_data" || type === "mgr_schedule" ||
+    type === "mgr_on_alpha" || type === "mgr_on_news" || type === "mgr_on_data" || type === "mgr_schedule" || type === "mgr_combine" ||
     type === "feed_price" || type === "feed_change_pct" || type === "feed_vix" ||
     type === "alpha_rsi" || type === "alpha_ma_cross"
   ) return 0;

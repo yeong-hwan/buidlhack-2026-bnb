@@ -16,6 +16,7 @@ const MANAGER_TRIGGERS = new Set([
   "mgr_on_news",
   "mgr_on_data",
   "mgr_schedule",
+  "mgr_combine",
 ]);
 
 export function validateStrategy(agents: AgentBlocks): BlockError[] {

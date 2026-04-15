@@ -238,6 +238,16 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     detail: (f) => `every ${f.N} ${f.UNIT}`,
   },
   {
+    type: "mgr_combine", agent: "manager", keyword: "all of", label: "signals",
+    shape: "cblock",
+    fields: {
+      ALPHA: { kind: "select", options: [{ label: "BUY", value: "BUY" }, { label: "SELL", value: "SELL" }, { label: "HOLD", value: "HOLD" }] },
+      NEWS:  { kind: "select", options: [{ label: "BULLISH", value: "BULLISH" }, { label: "BEARISH", value: "BEARISH" }, { label: "NEUTRAL", value: "NEUTRAL" }] },
+    },
+    defaults: { ALPHA: "BUY", NEWS: "BULLISH" },
+    detail: (f) => `alpha ${f.ALPHA} & news ${f.NEWS}`,
+  },
+  {
     type: "mgr_if_signal", agent: "manager", keyword: "if", label: "signal =",
     shape: "cblock",
     fields: {

@@ -52,6 +52,7 @@ function DraggableBlock({
   onUpdate,
   onDelete,
   onChildrenChange,
+  error,
 }: {
   id: string;
   block: AgentZoneData["blocks"][0];
@@ -61,6 +62,7 @@ function DraggableBlock({
   onUpdate: (fields: Record<string, string | number>) => void;
   onDelete: () => void;
   onChildrenChange?: (children: AgentZoneData["blocks"]) => void;
+  error?: { severity: "error" | "warning"; message: string };
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
 
@@ -81,16 +83,37 @@ function DraggableBlock({
         listeners?.onPointerDown?.(e);
       }}
     >
-      <BlockCard
-        block={block}
-        color={color}
-        isFirst={isFirst}
-        isLast={isLast}
-        editing={true}
-        onUpdate={onUpdate}
-        onDelete={onDelete}
-        onChildrenChange={onChildrenChange}
-      />
+      <div style={{ position: "relative" }}>
+        <BlockCard
+          block={block}
+          color={color}
+          isFirst={isFirst}
+          isLast={isLast}
+          editing={true}
+          onUpdate={onUpdate}
+          onDelete={onDelete}
+          onChildrenChange={onChildrenChange}
+        />
+        {error && (
+          <div
+            style={{
+              position: "absolute",
+              top: 4, right: 4,
+              fontSize: 8,
+              fontWeight: "bold",
+              padding: "1px 5px",
+              borderRadius: 20,
+              background: error.severity === "error" ? "rgba(239,68,68,0.9)" : "rgba(245,158,11,0.9)",
+              color: "white",
+              zIndex: 10,
+              pointerEvents: "none",
+            }}
+            title={error.message}
+          >
+            {error.severity === "error" ? "E" : "W"}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -222,6 +245,7 @@ function AgentZoneNode({ data }: NodeProps) {
                   onUpdate={(fields) => handleUpdateBlock(i, fields)}
                   onDelete={() => handleDeleteBlock(i)}
                   onChildrenChange={(children) => handleChildrenChange(i, children)}
+                  error={d.errors.find(e => e.blockIndex === i)}
                 />
               ))}
             </SortableContext>
@@ -229,10 +253,10 @@ function AgentZoneNode({ data }: NodeProps) {
         )}
       </div>
 
-      {/* Validation errors */}
-      {d.errors.length > 0 && (
+      {/* Validation errors — zone-level only (block-level shown inline on the block) */}
+      {d.errors.filter(e => e.blockIndex === undefined).length > 0 && (
         <div className="mx-2 mb-2 flex flex-col gap-1">
-          {d.errors.map((err, i) => (
+          {d.errors.filter(e => e.blockIndex === undefined).map((err, i) => (
             <div
               key={i}
               className="flex items-start gap-1.5 rounded-lg px-2.5 py-1.5 text-[10px]"

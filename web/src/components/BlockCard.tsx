@@ -225,21 +225,55 @@ export default function BlockCard({
   }
 
   function renderBlockRow(shapeKey: string, showTopSocket: boolean, showBottomBump: boolean) {
+    const isHat = shapeKey === "hat";
+    const isCap = shapeKey === "cap" || shapeKey === "cblock-cap";
     return (
       <div
         style={{
           position: "relative",
           background: blockBg,
           borderRadius: borderRadius(shapeKey),
-          border: `1px solid ${color}40`,
+          border: isHat
+            ? `1.5px solid ${color}60`
+            : isCap
+            ? `1px solid ${color}30`
+            : `1px solid ${color}40`,
+          borderStyle: isCap ? "dashed" : "solid",
           minHeight: 36,
           width: "100%",
           paddingTop: 6,
           paddingBottom: 6,
         }}
       >
+        {/* Shape indicator stripe */}
+        {isHat && (
+          <div style={{
+            position: "absolute",
+            top: 0, left: 0, right: 0,
+            height: 2,
+            background: `${color}`,
+            borderRadius: "4px 4px 0 0",
+            opacity: 0.7,
+          }} />
+        )}
+        {isCap && (
+          <div style={{
+            position: "absolute",
+            bottom: 0, left: 0, right: 0,
+            height: 2,
+            background: `${color}`,
+            borderRadius: "0 0 4px 4px",
+            opacity: 0.4,
+          }} />
+        )}
         {showTopSocket && <TopSocket />}
         <div className="flex items-center gap-2 px-3 py-1.5">
+          {/* OUT label for cap blocks */}
+          {shapeKey === "cap" && (
+            <span style={{ position: "absolute", right: editing ? 28 : 8, top: "50%", transform: "translateY(-50%)", fontSize: 8, color: `${color}60`, fontWeight: "bold", letterSpacing: 1 }}>
+              OUT
+            </span>
+          )}
           {/* Keyword badge */}
           <span
             className="shrink-0 text-[9px] font-extrabold uppercase tracking-wider text-white"
