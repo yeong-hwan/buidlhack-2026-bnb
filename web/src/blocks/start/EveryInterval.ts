@@ -1,9 +1,27 @@
-import { Block } from '../base';
+import { Block, type BlockSpec } from '../base';
+import type { IntervalUnit } from '../types';
 
 export class EveryInterval extends Block {
   readonly type = 'every_interval';
   readonly category = 'start' as const;
   readonly shape = 'hat' as const;
 
-  interval: '1m' | '5m' | '1h' | '1d' | '1w' = '1h';
+  interval: number = 1;
+  unit: IntervalUnit = 'h';
+
+  override getSpec(): BlockSpec {
+    return {
+      type: this.type,
+      category: this.category,
+      shape: this.shape,
+      inputPorts: [
+        { name: 'interval', direction: 'in', kind: 'value', valueType: 'number', required: true },
+        { name: 'unit', direction: 'in', kind: 'value', valueType: 'duration', required: true },
+      ],
+      outputPorts: [
+        { name: 'trigger', direction: 'out', kind: 'trigger', required: true },
+        { name: 'next', direction: 'out', kind: 'statement', required: false },
+      ],
+    };
+  }
 }

@@ -1,21 +1,16 @@
 import { Block, type BlockSpec } from '../base';
-import type { SignalType } from '../types';
 
-export class WhenSignalReceived extends Block {
-  readonly type = 'when_signal_received';
+export class ManualRun extends Block {
+  readonly type = 'manual_run';
   readonly category = 'start' as const;
   readonly shape = 'hat' as const;
-
-  signalType: SignalType = 'ENTRY';
 
   override getSpec(): BlockSpec {
     return {
       type: this.type,
       category: this.category,
       shape: this.shape,
-      inputPorts: [
-        { name: 'signalType', direction: 'in', kind: 'value', valueType: 'signal', required: true },
-      ],
+      inputPorts: [],
       outputPorts: [
         { name: 'trigger', direction: 'out', kind: 'trigger', required: true },
         { name: 'next', direction: 'out', kind: 'statement', required: false },
