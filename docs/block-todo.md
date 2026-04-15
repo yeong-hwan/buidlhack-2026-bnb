@@ -207,65 +207,42 @@ interface SignalBus {
 
 ### 3-1. Block Layout 계산
 
-- [ ] `computeBlockLayout(blockNode, spec): BlockLayout` 구현
-
-```ts
-interface BlockLayout {
-  id: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  portAnchors: Record<string, PortAnchor>;    // world 좌표
-  childCavities: Record<string, CavityLayout>; // C-block전용
-}
-
-interface CavityLayout {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  insertionPoints: number[]; // 각 child 사이 y 좌표
-}
-```
-
-- [ ] Hat 블록 기본 크기 계산
-- [ ] Stack 블록 — field 수에 따른 height 계산
-- [ ] Boolean 블록 — hexagon bounding box 계산
-- [ ] Value 블록 — capsule 크기 계산
-- [ ] C-block — header + cavity + footer 계산
+- [x] `computeBlockLayout(blockNode, spec): BlockLayout` 구현
+- [x] Hat 블록 기본 크기 계산
+- [x] Stack 블록 — field 수에 따른 height 계산
+- [x] Boolean 블록 — hexagon bounding box 계산
+- [x] Value 블록 — capsule 크기 계산
+- [x] C-block — header + cavity + footer 계산
   - cavity height = child block 합산 + padding
   - child 없을 때 최소 높이(placeholder)
 
 ### 3-2. Port Anchor 계산
 
-DOM 측정 금지. layout 값에서 계산.
-
-- [ ] `statement-in` anchor — 블록 상단 중앙 (notch 홈 위치)
-- [ ] `statement-out` anchor — 블록 하단 중앙 (notch 돌기 위치)
-- [ ] `condition` (boolean-in) — C-block 헤더 condition 슬롯 내부 중앙
-- [ ] `value-in` — 해당 field 슬롯 내부 중앙
-- [ ] `child-slot` — cavity 영역 상단
-- [ ] 모든 anchor는 world 좌표계
+- [x] `statement-in` anchor — 블록 상단 중앙
+- [x] `statement-out` anchor — 블록 하단 중앙
+- [x] `condition` (boolean-in) — C-block 헤더 우측
+- [x] `value-in` — 해당 field 슬롯 내부
+- [x] `child-slot` — cavity 영역 상단
+- [x] 모든 anchor는 world 좌표계
 
 ### 3-3. C-block 자동 확장
 
-- [ ] child 추가 → cavity height 재계산 → 부모 height 갱신
-- [ ] 중첩 C-block — 내부 확장이 외부까지 전파
+- [x] child 추가 → cavity height 재계산 → 부모 height 갱신
+- [x] 중첩 C-block — 내부 확장이 외부까지 전파 (computeCanvasLayout multi-pass)
 
 ### 3-4. Zoom/Pan 변환 유틸
 
-- [ ] `screenToWorld(screen, zoom, pan): Point`
-- [ ] `worldToScreen(world, zoom, pan): Point`
+- [x] `screenToWorld(screen, zoom, pan): Point`
+- [x] `worldToScreen(world, zoom, pan): Point`
 
 ### 3-5. 검증
 
-- [ ] `computeBlockLayout('if', ...)` → `prev`, `next`, `condition` anchor 3개 존재
-- [ ] `computeBlockLayout('compare', ...)` → `left`, `right`, `result` anchor 존재
-- [ ] if cavity에 buy_market 1개 추가 → if 블록 전체 height 증가
-- [ ] if cavity에 buy_market 2개 → height 추가 증가
-- [ ] anchor 좌표 단위 = world 좌표계 (zoom=1, pan=0 기준 일치)
-- [ ] zoom=2, pan=(100,100) → screenToWorld → worldToScreen 왕복 오차 없음
+- [x] `computeBlockLayout('if', ...)` → `prev`, `next`, `condition` anchor 존재 (engine.test.ts)
+- [x] `computeBlockLayout('compare', ...)` → `left`, `right`, `result` anchor 존재 (engine.test.ts)
+- [x] if cavity에 child 1개 추가 → height 증가 (engine.test.ts)
+- [x] if cavity에 child 2개 → height 추가 증가 (engine.test.ts)
+- [x] anchor 좌표 단위 = world 좌표계 (zoom=1, pan=0 기준 일치)
+- [x] zoom=2, pan=(100,100) → screenToWorld → worldToScreen 왕복 오차 없음 (engine.test.ts)
 
 ---
 
