@@ -6,7 +6,6 @@ import { useAccount, useConnect, useDisconnect } from "wagmi";
 
 const NAV_ITEMS = [
   { label: "Home", href: "/" },
-  { label: "Strategy", href: "/strategy" },
   { label: "Market", href: "/market" },
   { label: "Pricing", href: "/pricing" },
 ];
