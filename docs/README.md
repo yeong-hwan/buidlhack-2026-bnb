@@ -27,6 +27,9 @@
 - `BlockRenderer`는 shape와 label 위주로 렌더하며, `node.data` 기반 field 표시와 inline 편집은 아직 없다.
 - layout 엔진은 shape별 기본 크기와 anchor는 계산하지만, field 수와 실제 field 위치를 충분히 반영하는 field-aware layout 단계까지는 가지 않았다.
 - `if_else`, `consensus`처럼 child slot이 여러 개인 블록은 cavity 자체는 계산하지만 slot label, divider, 의미 구분 UI는 아직 부족하다.
+- statement stack interaction은 아직 Scratch 감각과 다르다.
+  현재는 "클릭한 블록을 루트로 한 하위 체인"만 같이 이동하는 경향이 있어, 연결된 스택 전체가 한 덩어리로 들리는 느낌이 약하다.
+  드래그 시작 시 부모 edge를 즉시 끊는 동작도 Scratch식 픽업/분리 감각과 다르다.
 
 ## 다음 우선순위
 
@@ -34,6 +37,8 @@
 2. `BlockLayout`을 field-aware하게 확장해서 field 표시/편집과 snap이 같은 좌표계를 공유하도록 정리
 3. `BlockRenderer`에 read-only field 표시를 먼저 넣고, 그 다음 inline edit 연결
 4. 다중 child slot 블록(`if_else`, `consensus`)에 slot label / divider / insertion UI 추가
+5. statement stack을 "어디를 잡아도 연결된 스택 전체가 함께 이동"하는 모델로 정리
+6. 드래그 시작 시 즉시 detach하지 않고, 실제 분리 의도가 확정되는 시점에 detach 처리
 
 ## 동기화 원칙
 

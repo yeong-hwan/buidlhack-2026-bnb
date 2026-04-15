@@ -314,6 +314,9 @@ interface SignalBus {
 - [ ] `StrategyEditor`와 `BlockCanvas`가 서로 다른 `zoom` / `pan` state를 사용하지 않도록 정리
 - [ ] shape-only renderer에서 field-aware renderer로 확장
 - [ ] layout 엔진이 Snap/Editor 단계에서 다시 깨지지 않도록 field slot 좌표를 명시적으로 모델링
+- [ ] 연결된 statement stack이 "클릭한 블록 아래만" 움직이지 않도록 정리
+- [ ] 드래그 시작 시 부모 edge를 즉시 끊지 않도록 interaction 모델 재설계
+- [ ] 더블클릭 분리 같은 보조 제스처 없이도 Scratch식 픽업/분리가 자연스럽게 동작하도록 정리
 
 ---
 
@@ -350,6 +353,9 @@ canConnect(source: PortAnchor, target: PortAnchor, doc: StrategyDocument): boole
 
 ### 5-4. Statement 체인 삽입
 
+- [ ] 연결된 statement stack은 어느 블록을 잡아도 동일한 stack 단위로 취급
+- [ ] 중간 블록을 잡아도 위/아래가 임의로 분리되지 않음
+- [ ] 부모 연결은 drag start 시점이 아니라 실제 detach 확정 시점에만 해제
 - [ ] A→B 체인 중간에 X 드롭 → A→X→B 자동 재연결
 - [ ] pointer y 기준 삽입 인덱스 계산 (world 좌표 기준)
 - [ ] 삽입 위치 horizontal insertion bar 표시
@@ -365,9 +371,11 @@ canConnect(source: PortAnchor, target: PortAnchor, doc: StrategyDocument): boole
 - [ ] `pointerdown` — draggingBlockId 저장, 초기 layout anchor 참조
 - [ ] `pointermove` — screen → world 변환 후 rAF throttle, 후보 탐색, highlight 갱신
 - [ ] `pointerup` — 최종 snap 판정, edge/child 삽입, layout 재계산
+- [ ] Scratch 기준으로 "픽업", "이동", "분리", "재삽입" 단계가 자연스럽게 이어지는지 확인
 
 ### 5-7. 연결 검증
 
+- [ ] 연결된 stack의 하위 블록만 따로 집었을 때 상위 stack이 의도치 않게 분리되지 않음
 - [ ] `statement-out → statement-in` 드롭 → edge 생성 + 좌표 보정
 - [ ] `statement-out → condition` 드롭 → 거부
 - [ ] `boolean-out → if.condition` 드롭 → edge 생성
