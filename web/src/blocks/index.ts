@@ -47,3 +47,28 @@ export { KillSwitch } from './guard/KillSwitch';
 
 export type { Block, BlockCategory, BlockShape, BlockSpec, PortSpec, ChildSlotSpec, PortDirection, PortKind, ValueType } from './base';
 export type { IntervalUnit, SignalType, NewsSource, SentimentSource, CompareOperator, ConsensusMode, PositionField, PortfolioField } from './types';
+
+// Phase 0: 데이터 모델
+export type {
+  BlockData, BlockType, BlockTypeDataMap,
+  EveryIntervalData, WhenSignalReceivedData, WhenNewsArrivesData, ManualRunData,
+  PriceOfData, ChangePctOfData, VolumeOfData, RsiOfData, MaOfData,
+  SentimentOfData, PositionInfoData, PortfolioInfoData,
+  IfData, IfElseData, AndData, OrData, NotData, CompareData, BetweenData, KeywordMatchData,
+  EmitSignalData, ScoreSignalData, ConfirmForNIntervalsData, ConsensusData,
+  BuyMarketData, SellMarketData, ClosePositionData, PauseStrategyData, ResumeStrategyData,
+  SetStopLossData, SetTakeProfitData, MaxPositionSizeData, CooldownAfterLossData, KillSwitchData,
+} from './data';
+
+export type {
+  BlockNode, Edge, StrategyDocument,
+  PortRole, PortAnchor,
+  ValidationLayer, ValidationSeverity, ValidationError,
+  EditorState, Point, Signal,
+} from './document';
+export { screenToWorld, worldToScreen } from './document';
+
+export type {
+  LiteralValue, CompiledNodeKind, CompiledNode,
+  Position, PortfolioState, SignalBus, RuntimeContext, CompiledGraph,
+} from './runtime';
