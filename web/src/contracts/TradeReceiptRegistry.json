@@ -1,0 +1,256 @@
+{
+  "abi": [
+    {
+      "type": "constructor",
+      "inputs": [
+        {
+          "name": "admin_",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "admin",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "authorizedExecutor",
+      "inputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "bool",
+          "internalType": "bool"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "receiptCount",
+      "inputs": [
+        {
+          "name": "strategyId",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "receiptsOf",
+      "inputs": [
+        {
+          "name": "strategyId",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "tuple[]",
+          "internalType": "struct TradeReceiptRegistry.Receipt[]",
+          "components": [
+            {
+              "name": "strategyId",
+              "type": "bytes32",
+              "internalType": "bytes32"
+            },
+            {
+              "name": "user",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "tokenIn",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "tokenOut",
+              "type": "address",
+              "internalType": "address"
+            },
+            {
+              "name": "amountIn",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "amountOut",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "timestamp",
+              "type": "uint64",
+              "internalType": "uint64"
+            }
+          ]
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "recordTrade",
+      "inputs": [
+        {
+          "name": "strategyId",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        },
+        {
+          "name": "user",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "tokenIn",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "tokenOut",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "amountIn",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "amountOut",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "receiptHash",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        },
+        {
+          "name": "index",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "setAuthorizedExecutor",
+      "inputs": [
+        {
+          "name": "executor",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "authorized",
+          "type": "bool",
+          "internalType": "bool"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "event",
+      "name": "ExecutorAuthorized",
+      "inputs": [
+        {
+          "name": "executor",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "authorized",
+          "type": "bool",
+          "indexed": false,
+          "internalType": "bool"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "TradeRecorded",
+      "inputs": [
+        {
+          "name": "strategyId",
+          "type": "bytes32",
+          "indexed": true,
+          "internalType": "bytes32"
+        },
+        {
+          "name": "user",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "executor",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "receiptHash",
+          "type": "bytes32",
+          "indexed": false,
+          "internalType": "bytes32"
+        },
+        {
+          "name": "index",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "error",
+      "name": "NotAdmin",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "NotAuthorized",
+      "inputs": []
+    }
+  ],
+  "bytecode": "0x60a060405234801561001057600080fd5b5060405161073838038061073883398101604081905261002f91610040565b6001600160a01b0316608052610070565b60006020828403121561005257600080fd5b81516001600160a01b038116811461006957600080fd5b9392505050565b6080516106a66100926000396000818161012f015261035b01526106a66000f3fe608060405234801561001057600080fd5b50600436106100625760003560e01c806333652d901461006757806334cdb1c7146100945780637cae716e146100c2578063871684bd146100d757806394671d821461010a578063f851a4401461012a575b600080fd5b61007a6100753660046104d7565b610169565b604080519283526020830191909152015b60405180910390f35b6100b46100a2366004610536565b60009081526020819052604090205490565b60405190815260200161008b565b6100d56100d036600461054f565b610350565b005b6100fa6100e536600461058b565b60016020526000908152604090205460ff1681565b604051901515815260200161008b565b61011d610118366004610536565b6103f8565b60405161008b91906105ad565b6101517f000000000000000000000000000000000000000000000000000000000000000081565b6040516001600160a01b03909116815260200161008b565b33600090815260016020526040812054819060ff1661019b5760405163ea8e4eb560e01b815260040160405180910390fd5b600088815260208181526040808320815160e0810183528c81526001600160a01b038c81168286019081528c82169483019485528b821660608401908152608084018c815260a085018c81524267ffffffffffffffff81811660c08901908152895460018082018c558b8f528d8f209a516007909202909a019081559651878a0180546001600160a01b0319908116928b169290921790559a516002880180548d16918a169190911790559451600387018054909b1697169690961790985590516004840155516005830155516006909101805467ffffffffffffffff1916919092161790558c8552939092529054909161029591610649565b60408051602081018c90526001600160a01b03808c1692820192909252818a166060820152908816608082015260a0810187905260c0810186905267ffffffffffffffff831660e08201529092506101000160408051601f198184030181528282528051602091820120808452908301859052945033916001600160a01b038b16918c917f6ff5cd00e3e6d7e13a45b2970721c50316a888eb89d04d2e48b998d49fa6c544910160405180910390a450965096945050505050565b336001600160a01b037f0000000000000000000000000000000000000000000000000000000000000000161461039957604051637bfa4b9f60e01b815260040160405180910390fd5b6001600160a01b038216600081815260016020908152604091829020805460ff191685151590811790915591519182527f61e59429ef81596566b5f5d75085a25d4043be4dd2ba28cc98d8677718e6d0c3910160405180910390a25050565b600081815260208181526040808320805482518185028101850190935280835260609492939192909184015b828210156104b05760008481526020908190206040805160e08101825260078602909201805483526001808201546001600160a01b039081168587015260028301548116938501939093526003820154909216606084015260048101546080840152600581015460a08401526006015467ffffffffffffffff1660c08301529083529092019101610424565b505050509050919050565b80356001600160a01b03811681146104d257600080fd5b919050565b60008060008060008060c087890312156104f057600080fd5b86359550610500602088016104bb565b945061050e604088016104bb565b935061051c606088016104bb565b92506080870135915060a087013590509295509295509295565b60006020828403121561054857600080fd5b5035919050565b6000806040838503121561056257600080fd5b61056b836104bb565b91506020830135801515811461058057600080fd5b809150509250929050565b60006020828403121561059d57600080fd5b6105a6826104bb565b9392505050565b602080825282518282018190526000919060409081850190868401855b8281101561063c57815180518552868101516001600160a01b039081168887015286820151811687870152606080830151909116908601526080808201519086015260a0808201519086015260c09081015167ffffffffffffffff169085015260e090930192908501906001016105ca565b5091979650505050505050565b8181038181111561066a57634e487b7160e01b600052601160045260246000fd5b9291505056fea264697066735822122010ed832533d276a9a5cca4609bb4bc3b7eeaa64ddbb7b73e6a43fa5808037a8264736f6c63430008180033"
+}

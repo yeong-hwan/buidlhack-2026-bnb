@@ -33,11 +33,10 @@ Backend / Agent Layer (TypeScript)
     Risk Agent (손절, 포지션 한도, 리스크 룰 체크)
     Orchestrator (에이전트 간 충돌 조정, 최종 실행 결정)
 
-Smart Contract Layer (Solidity)
-    StrategyRegistry.sol  (전략 등록/관리, 소유권)
-    VaultManager.sol      (사용자 자금 관리, 입출금)
-    ExecutionGateway.sol  (에이전트 실행 트리거, 온체인 검증)
-    StrategyNFT.sol       (전략 NFT화, 마켓플레이스 거래)
+Smart Contract Layer (Solidity, Foundry)
+    PerUserExecutor.sol     (사용자별 논-커스터디 실행 컨트랙트 — allowlist된 DEX/토큰만 스왑 가능)
+    TradeReceiptRegistry.sol (매 거래 온체인 해시 기록 — 실적 위변조 방지 핵심)
+    MarketplaceSettlement.sol (v1.1 — 전략 수익의 10%를 제작자/플랫폼에 자동 분배)
 
 Blockchain
     BSC   - 실제 DEX 스왑 실행 (PancakeSwap 등, 유동성)
@@ -52,7 +51,7 @@ Blockchain
 |------|------|
 | Frontend | Next.js, React Flow (블록 에디터), TailwindCSS |
 | Backend | TypeScript, Node.js |
-| Smart Contract | Solidity, Hardhat |
+| Smart Contract | Solidity, Foundry (forge + anvil + cast) |
 | Agent | LangChain / 자체 구현 |
 | DEX 연동 | PancakeSwap SDK, Viem |
 | 온체인 | BSC Mainnet/Testnet, opBNB |
@@ -103,13 +102,13 @@ BaseAgent (abstract)
 
 ```
 1. 사용자가 블록 에디터에서 전략 설계 (DAG 구성)
-2. Strategy Interpreter가 DAG를 실행 가능한 로직으로 변환
-3. StrategyRegistry.sol에 전략 등록 (온체인)
+2. Strategy Interpreter가 DAG를 실행 가능한 로직으로 변환 (JSON AST, 백엔드에서 화이트리스트 op만 실행)
+3. 사용자가 자신의 PerUserExecutor 컨트랙트 배포 + allowlist 설정 (서명)
 4. Orchestrator가 주기적으로 실행 루프 시작
 5. Alpha Agent → 시그널 수집 및 판단
 6. Risk Agent → 리스크 룰 사전 검증
-7. Execution Agent → BSC DEX에서 실행
-8. opBNB에 실행 로그 기록
+7. Execution Agent → operator 키로 PerUserExecutor.executeSwap() 호출 → PancakeSwap V3 스왑
+8. TradeReceiptRegistry에 거래 해시 기록 (온체인 실적 증명)
 9. 결과 피드백 → 대시보드 업데이트
 ```
 
@@ -117,9 +116,11 @@ BaseAgent (abstract)
 
 ## 온체인 증명 전략
 
-- 전략 등록: StrategyRegistry.sol 트랜잭션 (BSC)
-- 실행 로그: opBNB에 저비용으로 기록
-- 자금 흐름: VaultManager.sol → DEX 실행 트랜잭션 (BSC)
+- **전략 로직 증명은 아님**: 우리가 온체인으로 보장하는 건 "전략 로직이 의도대로 실행됐다"가 아니라 "실제 거래 내역이 위변조되지 않았다" — 범위 명확화
+- **실적 기록**: 매 거래가 TradeReceiptRegistry에 `keccak256(strategyId, tokenIn, tokenOut, amountIn, amountOut, timestamp)` 해시로 append. 마켓플레이스 리더보드의 수익률이 사후 조작/편집 불가능
+- **논-커스터디 실행**: 사용자 자금은 PerUserExecutor 내부에 머물고, operator(우리 백엔드)는 allowlist된 DEX/토큰으로만 스왑 가능. 자금을 임의 주소로 빼낼 수 없음
+- **거래 실행**: BSC 메인/테스트넷 PancakeSwap V3
+- **저비용 확장**: v1.1에서 opBNB로 확장해 실적 기록 가스비 추가 절감
 
 ---
 

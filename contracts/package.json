@@ -1,0 +1,21 @@
+{
+  "name": "@buidlhack/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PerUserExecutor + TradeReceiptRegistry contracts and local dev env",
+  "scripts": {
+    "setup": "forge install foundry-rs/forge-std OpenZeppelin/openzeppelin-contracts",
+    "anvil": "bash scripts/start-anvil.sh",
+    "anvil:testnet": "FORK=testnet bash scripts/start-anvil.sh",
+    "build": "forge build",
+    "test": "forge test -vv",
+    "test:fork": "BSC_MAINNET_RPC=${BSC_MAINNET_RPC:-https://bsc-dataseed.binance.org} forge test --match-contract PancakeSwapForkTest -vv",
+    "deploy:local": "forge script script/Deploy.s.sol --rpc-url http://127.0.0.1:8545 --broadcast",
+    "deploy:testnet": "forge script script/Deploy.s.sol --rpc-url $BSC_TESTNET_RPC --broadcast",
+    "export-abis": "tsx scripts/export-abis.ts",
+    "clean": "forge clean"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2"
+  }
+}

@@ -89,12 +89,13 @@ AI 에이전트가 뉴스/SNS/온체인 데이터를 의미 단위로 해석해 
 ┌──────────────────────────────────────────┐
 │  Strategy Execution Engine (Off-chain)   │  ← 시그널 모니터링 + 실행 결정
 │  - Price/Macro/News Data Ingestion       │
-│  - Block Logic Evaluator                 │
+│  - Strategy AST Interpreter (sandboxed)  │  ← 블록 실행 (보안 경계)
 │  - AI Signal Workers                     │
 └──────────────────────────────────────────┘
-                  ↓ when triggered
+                  ↓ when triggered, sign via session key
 ┌──────────────────────────────────────────┐
 │  On-chain Layer (BSC + opBNB)            │
+│  - Per-User Executor Contract            │  ← 논-커스터디 실행 (보안 경계)
 │  - Trade Receipt Registry                │  ← 실적 위변조 방지 (핵심)
 │  - PancakeSwap V3 Trade Execution        │  ← 실제 거래
 │  - Marketplace Settlement Contract       │  ← 수수료 자동 분배
@@ -106,6 +107,20 @@ AI 에이전트가 뉴스/SNS/온체인 데이터를 의미 단위로 해석해 
 - **실적은 온체인 해시로**: 매 거래마다 `keccak256(strategyId, tokenIn, tokenOut, amountIn, amountOut, timestamp)`를 BSC에 기록. 마켓플레이스 리더보드의 수익률이 사후 조작/편집 불가능해진다. **이게 다른 카피트레이딩 플랫폼과의 결정적 차이.**
 - **거래는 PancakeSwap V3에 집중**: V1에서 한 곳에 집중해 BSC 거래량에 직접 기여. 슬리피지/라우팅도 단순화.
 - **실행은 오프체인**: 시그널 평가를 매번 온체인에서 하면 가스 폭탄. 오프체인에서 평가하고 거래만 온체인으로 보낸다.
+
+### 보안 경계 — 두 개의 원칙
+
+**① 전략은 "코드"가 아니라 "데이터"다 (JSON AST + Interpreter)**
+블록 에디터는 JS 코드를 생성하지 않는다. **JSON AST**(화이트리스트된 op: `AND`, `PRICE_GT`, `SWAP` 등)를 생성할 뿐이고, 백엔드의 *엄격한 인터프리터*가 허용된 op만 실행한다. 사용자 전략이 우리 서버에서 `eval`을 호출할 방법이 구조적으로 없다. 이 AST를 canonical serialization해서 해시하면 **온체인 등록된 strategyId와 1:1 대응**된다.
+
+**② Your keys, your coins (논-커스터디 실행)**
+우리는 사용자의 프라이빗키를 갖지 않는다. 대신 사용자마다 **Per-User Executor Contract**가 배포되고, 그 안에 하드코딩된 제약이 있다:
+- 허용된 DEX(PancakeSwap V3)로만 호출
+- 허용된 토큰 페어(BNB/USDT/BUSD/CAKE 등)로만 스왑
+- 일일/주간 거래 한도
+- 사용자는 메인 지갑으로 **언제든 revoke/withdraw** 가능
+
+최악의 경우 우리 operator 키가 유출되어도 공격자는 "허용된 DEX에서 허용된 토큰 간 스왑"만 할 수 있을 뿐, 자금을 **외부로 빼낼 수 없다.** v1.1에서는 **ERC-4337 Session Key**로 전환해 권한을 더 세분화할 계획이다.
 
 ---
 
@@ -187,6 +202,7 @@ AI 에이전트가 뉴스/SNS/온체인 데이터를 의미 단위로 해석해 
 - **Working Demo**: 웹앱 (지갑 연결 → 블록 에디터 → 원클릭 배포 → PancakeSwap 거래)
 - **Onchain Proof (BSC Testnet)**:
   - Trade Receipt Registry 컨트랙트 배포 tx
+  - Per-User Executor Contract 배포 tx
   - 샘플 전략의 첫 PancakeSwap V3 거래 + Receipt 기록 tx
 - **Repo + README**: 컨트랙트 / 실행 엔진 / 프론트 모노레포 공개
 - **Demo Video (2–4분)**: 블록 조립 → 배포 → 자동 매매 → 온체인 Receipt 확인까지 풀 플로우
@@ -194,7 +210,7 @@ AI 에이전트가 뉴스/SNS/온체인 데이터를 의미 단위로 해석해 
 
 ### 기술 스택
 
-- **컨트랙트**: Solidity + Foundry (Trade Receipt Registry, Marketplace Settlement)
+- **컨트랙트**: Solidity + Foundry (Trade Receipt Registry, Per-User Executor, Marketplace Settlement)
 - **실행 엔진**: Node.js + viem, 가격/매크로 데이터 소스 연동
 - **프론트**: Next.js + React Flow 기반 블록 에디터
 

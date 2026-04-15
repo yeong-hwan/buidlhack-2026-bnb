@@ -1,0 +1,34 @@
+{
+  "bsc_testnet": {
+    "chainId": 97,
+    "pancakeV3": {
+      "factory": "0x0BFbCF9fa4f9C56B0F40a671Ad40E0805A091865",
+      "swapRouter": "0x1b81D678ffb9C0263b24A97847620C99d213eB14",
+      "quoterV2": "0xbC203d7f83677c7ed3F7acEc959963E7F4E2636e",
+      "nonfungiblePositionManager": "0x427bF5b37357632377eCbEC9de3626C71A5396c1"
+    },
+    "tokens": {
+      "WBNB": "0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd",
+      "USDT": "0x337610d27c682E347C9cD60BD4b3b107C9d34dDd",
+      "BUSD": "0xeD24FC36d5Ee211Ea25A80239Fb8C4Cfd80f12Ee",
+      "CAKE": "0xFa60D973F7642B748046464e165A65B7323b0DEE"
+    }
+  },
+  "bsc_mainnet": {
+    "chainId": 56,
+    "pancakeV3": {
+      "factory": "0x0BFbCF9fa4f9C56B0F40a671Ad40E0805A091865",
+      "swapRouter": "0x1b81D678ffb9C0263b24A97847620C99d213eB14",
+      "smartRouter": "0x13f4EA83D0bd40E75C8222255bc855a974568Dd4",
+      "quoterV2": "0xB048Bbc1Ee6b733FFfCFb9e9CeF7375518e25997",
+      "nonfungiblePositionManager": "0x46A15B0b27311cedF172AB29E4f4766fbE7F4364"
+    },
+    "tokens": {
+      "WBNB": "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
+      "USDT": "0x55d398326f99059fF775485246999027B3197955",
+      "BUSD": "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56",
+      "USDC": "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
+      "CAKE": "0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82"
+    }
+  }
+}
