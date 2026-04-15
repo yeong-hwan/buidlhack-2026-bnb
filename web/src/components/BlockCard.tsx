@@ -18,6 +18,10 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
+const NOTCH_W = 15;
+const NOTCH_H = 6;
+const NOTCH_X = 18;
+
 interface BlockData {
   type: string;
   fields: Record<string, string | number>;
@@ -36,6 +40,41 @@ interface BlockCardProps {
   onChildrenChange?: (children: BlockData[]) => void;
 }
 
+function BottomBump({ color }: { color: string }) {
+  return (
+    <div
+      style={{
+        position: "absolute",
+        bottom: -NOTCH_H,
+        left: NOTCH_X,
+        width: NOTCH_W,
+        height: NOTCH_H,
+        background: `${color}28`,
+        borderRadius: "0 0 5px 5px",
+        boxShadow: "inset 0 -2px 0 rgba(0,0,0,0.3)",
+        zIndex: 2,
+      }}
+    />
+  );
+}
+
+function TopSocket() {
+  return (
+    <div
+      style={{
+        position: "absolute",
+        top: 0,
+        left: NOTCH_X,
+        width: NOTCH_W,
+        height: NOTCH_H - 1,
+        background: "rgba(0,0,0,0.45)",
+        borderRadius: "0 0 4px 4px",
+        zIndex: 3,
+      }}
+    />
+  );
+}
+
 function DraggableChild({
   id, child, color, isFirst, isLast, editing, depth,
   onUpdate, onDelete, onChildrenChange,
@@ -44,7 +83,15 @@ function DraggableChild({
   return (
     <div
       ref={setNodeRef}
-      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1, cursor: "grab" }}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.4 : 1,
+        cursor: "grab",
+        marginBottom: isLast ? 0 : -NOTCH_H,
+        position: "relative",
+        zIndex: isLast ? 1 : undefined,
+      }}
       {...attributes}
       {...listeners}
       onPointerDown={(e) => { e.stopPropagation(); listeners?.onPointerDown?.(e); }}
@@ -73,19 +120,27 @@ export default function BlockCard({
   const dndId = useId();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
+  const blockBg = `${color}28`;
+  const keywordBg = `${color}50`;
+  const fieldBg = "rgba(0,0,0,0.28)";
+  const fieldBorder = "1px solid rgba(255,255,255,0.12)";
+
+  const hasTopSocket = shape === "stack" || shape === "cap";
+  const hasBottomBump = shape === "hat" || shape === "stack" || shape === "cblock";
+
+  function borderRadius(shapeOverride?: string): string {
+    const s = shapeOverride ?? shape;
+    if (s === "hat") return "8px 8px 4px 4px";
+    if (s === "cap") return "4px 4px 8px 8px";
+    if (s === "cblock-header") return "8px 8px 0 0";
+    if (s === "cblock-cap") return "0 0 8px 8px";
+    return "4px";
+  }
+
   function handleFieldChange(fn: string, v: string | number) {
     onUpdate({ ...block.fields, [fn]: v });
     setEditingField(null);
   }
-
-  const bg     = `${color}35`;
-  const bgDark = `${color}50`;
-  const inputBg = "rgba(0,0,0,0.25)";
-  const inputBorder = "rgba(255,255,255,0.15)";
-
-  const topR  = shape === "hat" || shape === "cblock" ? "8px" : "3px";
-  const botR  = shape === "cap" ? "8px" : shape === "cblock" ? "0" : "3px";
-  const radius = `${topR} ${topR} ${botR} ${botR}`;
 
   function renderField(fieldName: string) {
     if (!def) return null;
@@ -93,58 +148,137 @@ export default function BlockCard({
     if (!fieldDef) return null;
     const val = block.fields[fieldName];
 
+    const inputCls = "rounded-full px-2 py-0.5 text-[10px] text-white outline-none";
+    const inputSt = { background: fieldBg, border: `1.5px solid ${color}` };
+
     if (editing && editingField === fieldName) {
-      const cls = "rounded-full px-2 py-0.5 text-[10px] text-white outline-none";
-      const st = { background: inputBg, border: `1.5px solid ${color}` };
       if (fieldDef.kind === "select") {
         return (
-          <select key={fieldName} value={String(val)} onChange={(e) => handleFieldChange(fieldName, e.target.value)} onBlur={() => setEditingField(null)} autoFocus className={cls} style={st}
-            onPointerDown={(e) => e.stopPropagation()}>
-            {fieldDef.options.map((o) => <option key={o.value} value={o.value} className="bg-[#1a1a2e]">{o.label}</option>)}
+          <select
+            key={fieldName}
+            value={String(val)}
+            onChange={(e) => handleFieldChange(fieldName, e.target.value)}
+            onBlur={() => setEditingField(null)}
+            autoFocus
+            className={inputCls}
+            style={inputSt}
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            {fieldDef.options.map((o) => (
+              <option key={o.value} value={o.value} className="bg-[#1a1a2e]">{o.label}</option>
+            ))}
           </select>
         );
       }
       if (fieldDef.kind === "number") {
-        return <input key={fieldName} type="number" value={val} min={fieldDef.min} max={fieldDef.max} step={fieldDef.step ?? 1} onChange={(e) => handleFieldChange(fieldName, Number(e.target.value))} onBlur={() => setEditingField(null)} onKeyDown={(e) => { if (e.key === "Enter") setEditingField(null); }} autoFocus className={`${cls} w-14`} style={st} onPointerDown={(e) => e.stopPropagation()} />;
+        return (
+          <input
+            key={fieldName}
+            type="number"
+            value={val}
+            min={fieldDef.min}
+            max={fieldDef.max}
+            step={fieldDef.step ?? 1}
+            onChange={(e) => handleFieldChange(fieldName, Number(e.target.value))}
+            onBlur={() => setEditingField(null)}
+            onKeyDown={(e) => { if (e.key === "Enter") setEditingField(null); }}
+            autoFocus
+            className={`${inputCls} w-14`}
+            style={inputSt}
+            onPointerDown={(e) => e.stopPropagation()}
+          />
+        );
       }
-      return <input key={fieldName} type="text" value={String(val)} onChange={(e) => handleFieldChange(fieldName, e.target.value)} onBlur={() => setEditingField(null)} onKeyDown={(e) => { if (e.key === "Enter") setEditingField(null); }} autoFocus className={`${cls} w-20`} style={st} onPointerDown={(e) => e.stopPropagation()} />;
+      return (
+        <input
+          key={fieldName}
+          type="text"
+          value={String(val)}
+          onChange={(e) => handleFieldChange(fieldName, e.target.value)}
+          onBlur={() => setEditingField(null)}
+          onKeyDown={(e) => { if (e.key === "Enter") setEditingField(null); }}
+          autoFocus
+          className={`${inputCls} w-20`}
+          style={inputSt}
+          onPointerDown={(e) => e.stopPropagation()}
+        />
+      );
     }
 
     return (
-      <button key={fieldName}
+      <button
+        key={fieldName}
         onClick={(e) => { if (editing) { e.stopPropagation(); setEditingField(fieldName); } }}
         onPointerDown={(e) => e.stopPropagation()}
-        className="rounded-full px-2 py-0.5 text-[10px] font-medium text-white/90"
-        style={{ background: inputBg, border: `1.5px solid ${inputBorder}`, cursor: editing ? "pointer" : "default" }}
+        className="text-[10px] font-medium text-white/90"
+        style={{
+          background: fieldBg,
+          border: fieldBorder,
+          borderRadius: 20,
+          padding: "2px 8px",
+          cursor: editing ? "pointer" : "default",
+        }}
       >
         {String(val)}
       </button>
     );
   }
 
-  function renderBody(customRadius?: string) {
+  function renderBlockRow(shapeKey: string, showTopSocket: boolean, showBottomBump: boolean) {
     return (
-      <div className="flex items-center gap-1" style={{
-        background: bg, borderRadius: customRadius ?? radius,
-        boxShadow: `inset 0 -3px 0 ${bgDark}`, padding: "6px 0", minHeight: 36,
-      }}>
-        <div className="flex shrink-0 items-center justify-center self-stretch rounded-l-[inherit] px-2.5" style={{ background: bgDark, minWidth: 50 }}>
-          <span className="text-[10px] font-extrabold uppercase tracking-wider text-white">{keyword}</span>
-        </div>
-        <span className="px-1.5 text-[11px] font-bold text-white">{label}</span>
-        <div className="ml-auto flex items-center gap-1 pr-2">
-          {def ? Object.keys(def.fields).map(renderField) : (
-            detail && <span className="rounded-full px-2 py-0.5 text-[10px] text-white/70" style={{ background: inputBg }}>{detail}</span>
+      <div
+        style={{
+          position: "relative",
+          background: blockBg,
+          borderRadius: borderRadius(shapeKey),
+          border: `1px solid ${color}40`,
+          minHeight: 36,
+          width: "100%",
+          paddingTop: 6,
+          paddingBottom: 6,
+        }}
+      >
+        {showTopSocket && <TopSocket />}
+        <div className="flex items-center gap-2 px-3 py-1.5">
+          {/* Keyword badge */}
+          <span
+            className="shrink-0 text-[9px] font-extrabold uppercase tracking-wider text-white"
+            style={{ background: keywordBg, borderRadius: "6px", padding: "2px 6px" }}
+          >
+            {keyword}
+          </span>
+          {/* Label */}
+          <span className="text-[11px] font-semibold text-white/80">{label}</span>
+          {/* Fields */}
+          <div className="flex items-center gap-1.5">
+            {def ? Object.keys(def.fields).map(renderField) : (
+              detail && (
+                <span
+                  className="text-[10px] text-white/70"
+                  style={{ background: fieldBg, border: fieldBorder, borderRadius: 20, padding: "2px 8px" }}
+                >
+                  {detail}
+                </span>
+              )
+            )}
+          </div>
+          {/* Delete */}
+          {editing && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onDelete(); }}
+              onPointerDown={(e) => e.stopPropagation()}
+              className="ml-auto text-[10px] text-white/25 hover:text-red-300"
+            >
+              ×
+            </button>
           )}
         </div>
-        {editing && (
-          <button onClick={(e) => { e.stopPropagation(); onDelete(); }} onPointerDown={(e) => e.stopPropagation()} className="pr-2 text-[10px] font-bold text-white/30 hover:text-red-300">x</button>
-        )}
+        {showBottomBump && <BottomBump color={color} />}
       </div>
     );
   }
 
-  // ── C-block with sortable children ────────────────
+  // ── C-block ───────────────────────────────────────
   if (shape === "cblock") {
     const children = block.children ?? [];
     const childIds = children.map((_, i) => `child-${dndId}-${i}`);
@@ -163,44 +297,54 @@ export default function BlockCard({
     }
 
     function handleAddChild(type: string) {
-      const def = addableBlocks.find((b) => b.type === type);
-      if (!def) return;
-      onChildrenChange?.([...children, { type: def.type, fields: { ...def.defaults } }]);
+      const childDef = addableBlocks.find((b) => b.type === type);
+      if (!childDef) return;
+      onChildrenChange?.([...children, { type: childDef.type, fields: { ...childDef.defaults } }]);
       setChildPickerOpen(false);
     }
 
     return (
-      <div style={{ marginBottom: 2 }}>
-        {renderBody("8px 8px 0 0")}
+      <div style={{ marginBottom: isLast ? 0 : NOTCH_H + 2, position: "relative" }}>
+        {/* Header row */}
+        {renderBlockRow("cblock-header", false, true)}
 
-        {/* C-block mouth */}
-        <div style={{
-          marginLeft: 18,
-          borderLeft: `4px solid ${bgDark}`,
-          borderBottom: `2px solid ${bgDark}`,
-          background: `${color}08`,
-          minHeight: 36,
-          padding: "4px 4px 4px 4px",
-          position: "relative",
-        }}>
+        {/* Mouth */}
+        <div
+          style={{
+            marginLeft: NOTCH_X,
+            borderLeft: `4px solid ${color}50`,
+            background: `${color}10`,
+            minHeight: 36,
+            padding: "4px 4px 4px 4px",
+            position: "relative",
+          }}
+        >
           {children.length > 0 && (
             <DndContext id={dndId} sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleChildDragEnd}>
               <SortableContext items={childIds} strategy={verticalListSortingStrategy}>
                 {children.map((child, idx) => (
                   <DraggableChild
-                    key={childIds[idx]} id={childIds[idx]} child={child} color={color}
-                    isFirst={idx === 0} isLast={idx === children.length - 1}
-                    editing={editing} depth={depth + 1}
-                    onUpdate={(fields) => { onChildrenChange?.(children.map((c, i) => i === idx ? { ...c, fields } : c)); }}
+                    key={childIds[idx]}
+                    id={childIds[idx]}
+                    child={child}
+                    color={color}
+                    isFirst={idx === 0}
+                    isLast={idx === children.length - 1}
+                    editing={editing}
+                    depth={depth + 1}
+                    onUpdate={(fields) => {
+                      onChildrenChange?.(children.map((c, i) => i === idx ? { ...c, fields } : c));
+                    }}
                     onDelete={() => onChildrenChange?.(children.filter((_, i) => i !== idx))}
-                    onChildrenChange={(gc) => { onChildrenChange?.(children.map((c, i) => i === idx ? { ...c, children: gc } : c)); }}
+                    onChildrenChange={(gc) => {
+                      onChildrenChange?.(children.map((c, i) => i === idx ? { ...c, children: gc } : c));
+                    }}
                   />
                 ))}
               </SortableContext>
             </DndContext>
           )}
 
-          {/* Add child button */}
           {editing && (
             <div style={{ position: "relative" }}>
               <button
@@ -223,7 +367,12 @@ export default function BlockCard({
                       onClick={(e) => { e.stopPropagation(); handleAddChild(b.type); }}
                       className="flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left hover:bg-white/5"
                     >
-                      <span className="shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase" style={{ color, background: `${color}20` }}>{b.keyword}</span>
+                      <span
+                        className="shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase"
+                        style={{ color, background: `${color}20` }}
+                      >
+                        {b.keyword}
+                      </span>
                       <span className="text-[10px] text-white/70">{b.label}</span>
                     </button>
                   ))}
@@ -233,22 +382,33 @@ export default function BlockCard({
           )}
         </div>
 
-        {/* Bottom cap */}
-        <div style={{
-          background: bg,
-          borderRadius: "0 0 8px 8px",
-          boxShadow: `inset 0 -3px 0 ${bgDark}`,
-          height: 14,
-          marginLeft: 0,
-        }} />
+        {/* Bottom cap row */}
+        <div
+          style={{
+            position: "relative",
+            background: blockBg,
+            borderRadius: borderRadius("cblock-cap"),
+            border: `1px solid ${color}40`,
+            height: 16,
+            width: "100%",
+          }}
+        >
+          <BottomBump color={color} />
+        </div>
       </div>
     );
   }
 
-  // ── Hat / Cap / Stack ─────────────────────────────
+  // ── Hat / Stack / Cap ─────────────────────────────
   return (
-    <div style={{ marginBottom: shape === "cap" || isLast ? 0 : 2 }}>
-      {renderBody()}
+    <div
+      style={{
+        marginBottom: isLast ? 0 : -NOTCH_H,
+        position: "relative",
+        zIndex: isLast ? 1 : undefined,
+      }}
+    >
+      {renderBlockRow(shape, hasTopSocket, hasBottomBump)}
     </div>
   );
 }
