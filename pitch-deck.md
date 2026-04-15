@@ -1,37 +1,35 @@
 # 🎯 [Project Name] — Pitch Deck
 
-> **Build your own trading agent. No code required.**
+> **Trading agents you can actually trust.**
 >
-> Design on-chain trading strategies with a visual block editor. Deploy autonomous agents in one click — they execute on **BSC** and **opBNB** automatically.
+> Build with no-code blocks or copy verified strategies. Every trade runs on **BNB Chain** — and proves it.
 
 ---
 
 ## 1. Problem
 
-크립토 트레이더들이 매일 부딪히는 두 벽:
+**카피트레이딩은 신뢰가 깨진 시장이다.**
 
-**"좋은 전략 아이디어는 있는데, 만들 수가 없다."**
-코딩 못 하면 봇으로 만들 방법이 없다. 개발자에게 맡기면 비싸고 느리고, 수정 한 번에 또 의뢰해야 한다.
+SNS에서 "수익률 200%"라고 자랑하는 트레이더는 많다. 하지만 진짜 그 전략으로 매매했는지, 결과가 조작이 아닌지 검증할 방법이 없다. 결국 사용자는 직접 만들어야 하는데 - 코딩을 모르면 그것도 막막하다.
 
-**"잘하는 트레이더의 전략을 그대로 따라 하고 싶은데, 신뢰가 안 간다."**
-SNS에서 "이 전략 수익률 200%"라고 자랑하는 사람은 많다. 하지만 진짜 그 전략으로 매매했는지, 결과가 조작이 아닌지 검증할 방법이 없다.
+→ **검증 불가능한 전략에 돈을 맡기거나, 만들 수도 없는 전략을 부러워하거나.**
 
 ---
 
 ## 2. Solution
 
-**블록 조립으로 전략을 만들고, 원클릭으로 자동매매 봇을 배포한다 - 모두 BNB Chain 위에서.**
+**검증 가능한 전략을 클릭으로 실행하거나, 노코드로 직접 만든다 - 모두 BNB Chain 위에서.**
 
 ### 핵심 3가지
 
-**① No-Code Strategy Builder**
-레고처럼 블록을 조립해 트레이딩 로직을 만든다. 조건 블록, 액션 블록, 시그널 블록을 끌어다 붙이면 끝. 초등학생도 1시간이면 첫 전략을 만든다.
+**① Verifiable Strategy Marketplace**
+모든 전략의 매 거래는 **BSC에 해시로 앵커링되어 위변조 불가능**. 누구나 "진짜 그 전략대로 돌아갔는지"를 온체인으로 검증할 수 있다. 카피트레이딩의 근본적인 신뢰 문제를 해결한다.
 
 **② One-Click Deploy on BSC + opBNB**
-만든 전략은 클릭 한 번으로 자율 에이전트가 되어 **PancakeSwap**에서 실제 매매를 실행한다. BSC와 opBNB의 저렴한 가스비 덕분에 소액 사용자도 부담 없이 시작할 수 있고, 고빈도 전략도 경제성이 나온다.
+마켓플레이스의 전략이든, 직접 만든 전략이든, 클릭 한 번으로 자율 에이전트가 되어 **PancakeSwap**에서 실제 매매를 실행한다. BSC와 opBNB의 저렴한 가스비 덕분에 소액 사용자도 부담 없이 시작할 수 있고, 고빈도 전략도 경제성이 나온다.
 
-**③ Verifiable Strategy Marketplace**
-잘 나가는 전략을 사거나, 내 전략을 팔 수 있다. **모든 전략의 실행 결과는 BSC에 해시로 앵커링되어 위변조 불가능.** "진짜 그 전략대로 돌렸는지"가 온체인으로 증명된다 - 카피트레이딩의 근본적인 신뢰 문제를 푼다.
+**③ No-Code Strategy Builder**
+레고처럼 블록을 조립해 트레이딩 로직을 만든다. 조건 블록, 액션 블록, 시그널 블록을 끌어다 붙이면 끝. 초등학생도 1시간이면 첫 전략을 만든다.
 
 ---
 
@@ -81,31 +79,31 @@ AI 에이전트가 뉴스/SNS/온체인 데이터를 의미 단위로 해석해 
                   ↓ when triggered
 ┌──────────────────────────────────────────┐
 │  On-chain Layer (BSC + opBNB)            │
+│  - Strategy Hash Registry                │  ← 전략/실적 검증 (핵심)
 │  - PancakeSwap V3 Trade Execution        │  ← 실제 거래
-│  - Strategy Hash Registry                │  ← 전략/실적 검증
 │  - Marketplace Settlement Contract       │  ← 수수료 자동 분배
 └──────────────────────────────────────────┘
 ```
 
 ### 왜 이 구조가 옳은가
 
-- **실행은 오프체인**: 시그널 평가를 매번 온체인에서 하면 가스 폭탄. 오프체인에서 평가하고 거래만 온체인으로 보낸다.
+- **신뢰는 온체인 해시로**: 전략의 매 실행 결과(거래 내역)를 BSC에 해시로 등록 → 마켓플레이스에서 누구나 진위 검증 가능. **이게 다른 카피트레이딩 플랫폼과의 결정적 차이.**
 - **거래는 PancakeSwap V3에 집중**: V1에서 한 곳에 집중해 BSC 거래량에 직접 기여. 슬리피지/라우팅도 단순화.
-- **신뢰는 온체인 해시로**: 전략의 매 실행 결과를 BSC에 해시로 등록 → 마켓플레이스에서 누구나 진위 검증 가능. 이게 다른 카피트레이딩 플랫폼과의 결정적 차이.
+- **실행은 오프체인**: 시그널 평가를 매번 온체인에서 하면 가스 폭탄. 오프체인에서 평가하고 거래만 온체인으로 보낸다.
 
 ---
 
 ## 5. Differentiation
 
-|                       | No-Code Builder | Marketplace | One-Click Deploy | Non-Coin Signal | Semantic Signal | Onchain Verifiable |
-| --------------------- | --------------- | ----------- | ---------------- | --------------- | --------------- | ------------------ |
-| Coinrule              | O               | △           | O                | X               | X               | X                  |
-| Cryptohopper          | △               | O           | O                | X               | X               | X                  |
-| TradeTron             | O               | O           | O                | X               | X               | X                  |
-| eToro 카피트레이딩    | X               | O           | O                | X               | X               | X                  |
-| **우리 플랫폼**       | **O**           | **O**       | **O**            | **O**           | **O**           | **O**              |
+|                       | **Onchain Verifiable** | Marketplace | One-Click Deploy | No-Code Builder | Non-Coin Signal | Semantic Signal |
+| --------------------- | ---------------------- | ----------- | ---------------- | --------------- | --------------- | --------------- |
+| Coinrule              | X                      | △           | O                | O               | X               | X               |
+| Cryptohopper          | X                      | O           | O                | △               | X               | X               |
+| TradeTron             | X                      | O           | O                | O               | X               | X               |
+| eToro 카피트레이딩    | X                      | O           | O                | X               | X               | X               |
+| **우리 플랫폼**       | **O**                  | **O**       | **O**            | **O**           | **O**           | **O**           |
 
-다른 봇 플랫폼이 차트 안에 갇혀 있을 때, 우리는 **차트 밖 시그널 + 의미 기반 시그널 + 온체인 검증**을 모두 통합한 유일한 플랫폼이다.
+기존 플랫폼이 "그냥 믿어달라"고 말할 때, 우리는 **온체인으로 증명한다.** 거기에 차트 밖 시그널과 의미 기반 시그널까지 - 신뢰와 알파를 동시에 잡은 유일한 플랫폼.
 
 ---
 
@@ -149,7 +147,7 @@ AI 에이전트가 뉴스/SNS/온체인 데이터를 의미 단위로 해석해 
 
 ## 8. What We'd Build Next
 
-- **Hackathon (오늘)**: Block Editor MVP + PancakeSwap V3 연동 + Strategy Hash Registry + Marketplace Settlement Contract on BSC Testnet
+- **Hackathon (오늘)**: Strategy Hash Registry + PancakeSwap V3 연동 + Marketplace Settlement Contract on BSC Testnet + Block Editor MVP
 - **1-3개월**: opBNB 풀 마이그레이션으로 가스비 추가 절감, AI 시그널 블록 베타 출시
 - **3-6개월**: 모바일 앱, 더 많은 시그널 소스 (온체인 고래 움직임, DeFi TVL 변동), 전략 NFT화로 소유권 이전 시장
-- **장기 비전**: 트레이딩 전략의 GitHub. 누구나 fork하고, 개선하고, 수익을 나눈다.
+- **장기 비전**: **트레이딩 전략의 GitHub.** 누구나 fork하고, 개선하고, 수익을 나눈다 - 모든 실적이 온체인으로 증명되는 채로.
