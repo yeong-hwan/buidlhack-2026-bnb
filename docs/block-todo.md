@@ -249,11 +249,14 @@ interface SignalBus {
 ## Phase 4. 블록 Shape 렌더링
 
 > Layout Engine의 결과를 소비한다. Render는 layout 값을 props로 받아 그리기만 한다.
+> 현재 구현은 "shape preview + label + cavity" 단계까지 진행됐고, field-aware render/editor 단계는 아직 남아 있다.
 
 ### 4-1. 공통
 
 - [ ] `<BlockRenderer blockId={id} layout={layout} />` — shape 기반 컴포넌트 분기
 - [ ] shape 5종 시각적으로 구분 가능 (hat/stack/c-block/boolean/value)
+- [ ] `node.data` 기반 read-only field 표시
+- [ ] canvas / palette / editor가 동일한 `zoom`, `pan` source of truth 사용
 
 ### 4-2. Hat 블록
 
@@ -264,6 +267,7 @@ interface SignalBus {
 ### 4-3. Stack 블록
 
 - [ ] 상단 notch 홈 + 하단 notch 돌기
+- [ ] field 수 / field 종류를 반영하는 레이아웃 계산
 - [ ] 필드 inline 편집 UI (숫자/드롭다운/텍스트)
 - [ ] `buy_market`, `set_stop_loss`, `emit_signal` 렌더 확인
 
@@ -272,18 +276,21 @@ interface SignalBus {
 - [x] 헤더 (condition slot) + cavity + footer 구조
 - [x] cavity 높이 — layout.childCavities 값 사용 (DOM 측정 금지)
 - [x] `If` — then child 영역 1개
-- [x] `IfElse` — then / else child 영역 (단일 cavity로 표시)
+- [x] `IfElse` — then / else child 영역 계산
 - [x] cavity 비어있을 때 최소 높이 placeholder 표시
+- [ ] `if_else`, `consensus`의 slot label / divider / 시각적 구분
 
 ### 4-5. Boolean 블록 (hexagon)
 
 - [x] 육각형 SVG shape
 - [x] `Compare`, `And`, `Or`, `Not` 렌더 확인
+- [ ] operator / operand field 표시
 
 ### 4-6. Value 블록 (capsule)
 
 - [x] pill capsule shape
 - [x] `PriceOf`, `RsiOf`, `MaOf` 렌더 확인
+- [ ] asset / period / source 등 data field 표시
 
 ### 4-7. 검증
 
@@ -292,6 +299,7 @@ interface SignalBus {
 - [x] Boolean hexagon과 Value capsule 시각적으로 다름
 - [ ] 필드 값 편집 → `updateBlockData` 호출 (Phase 5에서 추가)
 - [x] Orphan 블록 — opacity 0.4 흐린 표시
+- [ ] 팔레트에서 새 블록 추가 시 현재 보이는 캔버스 중심 기준으로 생성
 
 ### 4-8. 캔버스 & 팔레트
 
@@ -300,6 +308,12 @@ interface SignalBus {
 - [x] 마우스 스크롤 → zoom in/out
 - [x] 드래그 → canvas pan
 - [x] Anchor debug overlay (토글 버튼)
+
+### 4-9. 현재 구현 리스크
+
+- [ ] `StrategyEditor`와 `BlockCanvas`가 서로 다른 `zoom` / `pan` state를 사용하지 않도록 정리
+- [ ] shape-only renderer에서 field-aware renderer로 확장
+- [ ] layout 엔진이 Snap/Editor 단계에서 다시 깨지지 않도록 field slot 좌표를 명시적으로 모델링
 
 ---
 

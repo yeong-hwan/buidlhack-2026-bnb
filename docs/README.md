@@ -20,6 +20,21 @@
 - `BlockNode.data`는 `Record<string, unknown>`가 아니라 블록별 정적 타입 유니온
 - signal 흐름은 document edge가 아니라 런타임 `SignalBus`에서 `signalType`으로 연결
 
+## Phase 4 현재 상태
+
+- 현재 에디터는 "shape preview + canvas navigation" 수준까지 구현된 상태로 본다.
+- `zoom` / `pan`은 `EditorState`에 정의돼 있지만 실제 캔버스와 팔레트는 아직 별도 로컬 state를 사용한다.
+- `BlockRenderer`는 shape와 label 위주로 렌더하며, `node.data` 기반 field 표시와 inline 편집은 아직 없다.
+- layout 엔진은 shape별 기본 크기와 anchor는 계산하지만, field 수와 실제 field 위치를 충분히 반영하는 field-aware layout 단계까지는 가지 않았다.
+- `if_else`, `consensus`처럼 child slot이 여러 개인 블록은 cavity 자체는 계산하지만 slot label, divider, 의미 구분 UI는 아직 부족하다.
+
+## 다음 우선순위
+
+1. 캔버스와 팔레트가 동일한 `zoom` / `pan` source of truth를 사용하도록 정리
+2. `BlockLayout`을 field-aware하게 확장해서 field 표시/편집과 snap이 같은 좌표계를 공유하도록 정리
+3. `BlockRenderer`에 read-only field 표시를 먼저 넣고, 그 다음 inline edit 연결
+4. 다중 child slot 블록(`if_else`, `consensus`)에 slot label / divider / insertion UI 추가
+
 ## 동기화 원칙
 
 - 타입/필드/블록 목록이 바뀌면 먼저 `web/src/blocks/data.ts`, `registry.ts`, `document.ts`, `runtime.ts`를 기준으로 확인한다.
