@@ -46,7 +46,7 @@ compareBlock.left = priceBlock;
 
 ```ts
 interface StrategyDocument {
-  blocks: BlockNode[];
+  blocks: Record<string, BlockNode>;
   edges: Edge[];
 }
 ```
@@ -60,9 +60,9 @@ type BlockId = string;
 
 interface BlockNode {
   id: BlockId;
-  type: string;                       // 'if', 'buy_market', 'compare' 등
-  data: Record<string, unknown>;      // 블록의 설정값
-  x: number;                          // UI 위치
+  type: BlockType;                    // 'if', 'buy_market', 'compare' 등
+  data: BlockData;                    // 블록별 정적 타입 data
+  x: number;                          // world 좌표
   y: number;
   children?: Record<string, string[]>; // C-block 전용 child slot
 }
@@ -70,12 +70,12 @@ interface BlockNode {
 
 예:
 ```ts
-const blocks: BlockNode[] = [
-  { id: 'b1', type: 'every_interval', data: { interval: 1, unit: 'h' }, x: 100, y: 100 },
-  { id: 'b2', type: 'if',            data: {}, children: { then: ['b4'] }, x: 100, y: 180 },
-  { id: 'b3', type: 'compare',       data: { operator: '>' }, x: 300, y: 180 },
-  { id: 'b4', type: 'buy_market',    data: { asset: 'BTC', amount: 100 }, x: 100, y: 320 },
-];
+const blocks: Record<string, BlockNode> = {
+  b1: { id: 'b1', type: 'every_interval', data: { interval: 1, unit: 'h' }, x: 100, y: 100 },
+  b2: { id: 'b2', type: 'if', data: {}, children: { then: ['b4'] }, x: 100, y: 180 },
+  b3: { id: 'b3', type: 'compare', data: { operator: '>' }, x: 300, y: 180 },
+  b4: { id: 'b4', type: 'buy_market', data: { asset: 'BTC', amount: 100 }, x: 100, y: 320 },
+};
 ```
 
 #### Edge
@@ -108,7 +108,8 @@ document를 검증·컴파일한 후 만들어지는 실행 계획. 런타임 �
 interface CompiledNode {
   id: string;
   type: string;
-  resolvedInputs: Record<string, CompiledNode | LiteralValue>;
+  kind: 'trigger' | 'statement' | 'expression' | 'predicate';
+  inputs: Record<string, CompiledNode | LiteralValue>;
   children: Record<string, CompiledNode[]>;
   next?: CompiledNode;
 }
@@ -151,7 +152,7 @@ interface CompiledNode {
 | `statement` | `every_interval.next → if.prev` | 실행 흐름 순서 |
 | `boolean` | `compare.result → if.condition` | 조건식 제공 |
 | `value` | `price_of.value → compare.left` | 계산값 공급 |
-| `signal` | `emit_signal.signal → [signal bus]` | 전략 간 신호 (signal bus로 관리 권장) |
+| `signal` | `emit_signal(ENTRY)` / `when_signal_received(ENTRY)` | document edge가 아니라 SignalBus 매칭으로 연결 |
 | `child` | `buy_market ∈ if.then` | 부모-자식 소속 |
 
 ---
@@ -177,6 +178,11 @@ interface CompiledNode {
 
 4. UI 재렌더 — 연결선 렌더링, 블록 스냅, warning/error 갱신
 ```
+
+---
+
+`emit_signal`과 `when_signal_received` 사이에는 별도 edge를 만들지 않는다.
+둘은 `signalType`이 일치할 때 런타임 SignalBus에서만 연결된다.
 
 ---
 
@@ -266,7 +272,7 @@ document와 compiled graph를 분리하는 이유:
 BlockNode     — 화면의 블록 인스턴스 데이터 (id + type + data + children)
 Edge          — 포트 간 연결 (from.blockId:port → to.blockId:port)
 StrategyDoc   — 편집 상태의 source of truth
-CompiledGraph — 런타임 실행 계획
+CompiledGraph — 런타임 실행 계획 (kind + inputs + children + next)
 
 UI 편집 → document 저장 → 검증 → 컴파일 → 런타임 실행
 ```

@@ -235,7 +235,7 @@ BlockNode의 children 구조:
 interface BlockNode {
   id: string;
   type: string;
-  data: Record<string, unknown>;
+  data: BlockData;
   children?: Record<string, string[]>; // { then: ['buy1', 'emit1'] }
 }
 ```

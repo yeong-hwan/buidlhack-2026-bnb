@@ -20,10 +20,10 @@
 | statement flow (실행 순서) | edge | `every_interval.next → if.prev` |
 | value 공급 | edge | `price_of.value → compare.left` |
 | boolean 공급 | edge | `compare.result → if.condition` |
-| signal 공급 | edge | `emit_signal.signal → bus` |
+| signal 연결 | 런타임 SignalBus | `emit_signal(ENTRY)` ↔ `when_signal_received(ENTRY)` |
 | nested block 소속 | child-slot | `buy_market ∈ if.children.then` |
 
-**규칙**: nested block(C-block 내부 배치)만 child-slot. 나머지는 전부 edge.
+**규칙**: nested block(C-block 내부 배치)만 child-slot. signal은 document edge가 아니라 런타임 SignalBus로 연결한다.
 
 ### 좌표계 원칙
 
@@ -434,7 +434,7 @@ canConnect(source: PortAnchor, target: PortAnchor, doc: StrategyDocument): boole
 - [ ] value expression graph 재귀 탐색 (`kind: 'expression'`)
 - [ ] C-block child slot → `CompiledNode.children` 변환
 - [ ] orphan 블록 (미연결) → compiled graph에서 제외
-- [ ] signal flow 처리 (`emit_signal.signal` → SignalBus 연결)
+- [ ] signal flow 처리 (`emit_signal(signalType)`와 `when_signal_received(signalType)`를 SignalBus로 매칭)
 
 ### 7-2. 검증
 

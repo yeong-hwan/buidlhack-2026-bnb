@@ -55,6 +55,7 @@
 | `EveryInterval` | `every_interval` | `interval: 1m/5m/1h/1d/1w` |
 | `WhenSignalReceived` | `when_signal_received` | `signal_type: ENTRY/EXIT/RISK_ON/RISK_OFF/BULLISH/BEARISH` |
 | `WhenNewsArrives` | `when_news_arrives` | `source: news/social/all` |
+| `ManualRun` | `manual_run` | 없음 |
 
 ---
 
@@ -185,6 +186,7 @@ boolean slot ← boolean shape blocks (compare, and, or, not, between, keyword_m
 
 ```
 Start (hat)       — Every interval, When signal received, When news arrives
+                    Manual run
 Actions (stack)   — Emit signal, Buy, Sell, Close, Pause, Resume,
                     Stop loss, Take profit, Max position, Cooldown, Kill switch
 Controls          — If, If else
@@ -200,20 +202,19 @@ Decision          — Consensus (aggregator), Score signal, Confirm N intervals
 
 ```
 web/src/blocks/
-  base.ts          — BlockShape, SlotType, Block 추상 클래스
+  base.ts          — BlockShape, PortSpec, Block 추상 클래스
   index.ts         — 전체 export
-  start/           Hat: EveryInterval, WhenSignalReceived, WhenNewsArrives
+  start/           Hat: EveryInterval, WhenSignalReceived, WhenNewsArrives, ManualRun
   input/           Value: PriceOf, ChangePctOf, VolumeOf, RsiOf, MaOf,
                          SentimentOf, PositionInfo, PortfolioInfo
-                   Boolean: KeywordMatch
   logic/           Control: If, IfElse
-                   Boolean: And, Or, Not, Compare, Between
+                   Boolean: And, Or, Not, Compare, Between, KeywordMatch
   decision/        Stack: EmitSignal, ScoreSignal, ConfirmForNIntervals
-                   Aggregator: Consensus
+                   C-block: Consensus
   execution/       Stack: BuyMarket, SellMarket, ClosePosition,
                          PauseStrategy, ResumeStrategy
   guard/           Stack: SetStopLoss, SetTakeProfit, MaxPositionSize,
                          CooldownAfterLoss, KillSwitch
 ```
 
-*총 33개 블록 (IfDrawdown 제거 — if + portfolio_info 조합으로 대체)*
+*총 34개 블록 (IfDrawdown 제거, ManualRun 포함)*
