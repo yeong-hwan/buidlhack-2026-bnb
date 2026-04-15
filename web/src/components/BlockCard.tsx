@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useId } from "react";
-import { getBlockDef } from "@/lib/blockRegistry";
+import { getBlockDef, getBlocksForAgent } from "@/lib/blockRegistry";
 import {
   DndContext,
   closestCenter,
@@ -69,6 +69,7 @@ export default function BlockCard({
   const detail = def?.detail(block.fields) ?? "";
 
   const [editingField, setEditingField] = useState<string | null>(null);
+  const [childPickerOpen, setChildPickerOpen] = useState(false);
   const dndId = useId();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
@@ -147,6 +148,9 @@ export default function BlockCard({
   if (shape === "cblock") {
     const children = block.children ?? [];
     const childIds = children.map((_, i) => `child-${dndId}-${i}`);
+    const blockDef = getBlockDef(block.type);
+    const agentKey = blockDef?.agent ?? "manager";
+    const addableBlocks = getBlocksForAgent(agentKey).filter((b) => b.shape === "stack");
 
     function handleChildDragEnd(event: DragEndEvent) {
       const { active, over } = event;
@@ -158,17 +162,28 @@ export default function BlockCard({
       }
     }
 
+    function handleAddChild(type: string) {
+      const def = addableBlocks.find((b) => b.type === type);
+      if (!def) return;
+      onChildrenChange?.([...children, { type: def.type, fields: { ...def.defaults } }]);
+      setChildPickerOpen(false);
+    }
+
     return (
       <div style={{ marginBottom: 2 }}>
         {renderBody("8px 8px 0 0")}
 
+        {/* C-block mouth */}
         <div style={{
-          marginLeft: 14, borderLeft: `4px solid ${bgDark}`,
-          background: `${color}10`, minHeight: 32, padding: "4px 4px",
+          marginLeft: 18,
+          borderLeft: `4px solid ${bgDark}`,
+          borderBottom: `2px solid ${bgDark}`,
+          background: `${color}08`,
+          minHeight: 36,
+          padding: "4px 4px 4px 4px",
+          position: "relative",
         }}>
-          {children.length === 0 ? (
-            <div className="flex items-center px-2 text-[10px] italic text-white/20" style={{ minHeight: 28 }}>+</div>
-          ) : (
+          {children.length > 0 && (
             <DndContext id={dndId} sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleChildDragEnd}>
               <SortableContext items={childIds} strategy={verticalListSortingStrategy}>
                 {children.map((child, idx) => (
@@ -184,9 +199,48 @@ export default function BlockCard({
               </SortableContext>
             </DndContext>
           )}
+
+          {/* Add child button */}
+          {editing && (
+            <div style={{ position: "relative" }}>
+              <button
+                onClick={(e) => { e.stopPropagation(); setChildPickerOpen((v) => !v); }}
+                onPointerDown={(e) => e.stopPropagation()}
+                className="mt-1 flex items-center gap-1 rounded px-2 py-0.5 text-[9px] font-bold transition-colors hover:bg-white/10"
+                style={{ color: `${color}80` }}
+              >
+                + add block
+              </button>
+              {childPickerOpen && (
+                <div
+                  className="absolute left-0 top-full z-50 mt-1 rounded-xl border border-white/15 bg-[#0d1727] p-1.5 shadow-2xl"
+                  style={{ minWidth: 180 }}
+                  onPointerDown={(e) => e.stopPropagation()}
+                >
+                  {addableBlocks.map((b) => (
+                    <button
+                      key={b.type}
+                      onClick={(e) => { e.stopPropagation(); handleAddChild(b.type); }}
+                      className="flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left hover:bg-white/5"
+                    >
+                      <span className="shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase" style={{ color, background: `${color}20` }}>{b.keyword}</span>
+                      <span className="text-[10px] text-white/70">{b.label}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
-        <div style={{ background: bg, borderRadius: "0 0 8px 8px", boxShadow: `inset 0 -3px 0 ${bgDark}`, height: 14 }} />
+        {/* Bottom cap */}
+        <div style={{
+          background: bg,
+          borderRadius: "0 0 8px 8px",
+          boxShadow: `inset 0 -3px 0 ${bgDark}`,
+          height: 14,
+          marginLeft: 0,
+        }} />
       </div>
     );
   }

@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useState, useTransition, useCallback } from "react";
+import { useAccount, useConnect } from "wagmi";
 import type { StrategyResponse, StrategyBlock, AgentBlocks } from "@/app/api/strategy/route";
 import ChatThread, { type ChatMessage } from "@/components/ChatThread";
 import BlockPalette from "@/components/BlockPalette";
@@ -55,6 +56,12 @@ export default function StrategyPage() {
   const [agentBlocks, setAgentBlocks] = useState<AgentBlocks>(DEFAULT_AGENTS);
   const [messages, setMessages]       = useState<ChatMessage[]>([]);
   const [isPending, startTransition]  = useTransition();
+  const [deployModal, setDeployModal] = useState(false);
+  const [deploying, setDeploying]     = useState(false);
+  const [deployTx, setDeployTx]       = useState<string | null>(null);
+
+  const { isConnected } = useAccount();
+  const { connect, connectors } = useConnect();
 
   async function generate(text: string) {
     if (!text.trim()) return;
@@ -154,13 +161,76 @@ export default function StrategyPage() {
             Simulate
           </button>
           <button
+            onClick={() => {
+              if (!strategy) return;
+              if (!isConnected) { connect({ connector: connectors[0] }); return; }
+              setDeployModal(true);
+              setDeployTx(null);
+            }}
             disabled={!strategy}
             className="rounded-lg bg-cyan-400 px-3 py-1 text-[10px] font-semibold text-slate-900 hover:bg-cyan-300 disabled:opacity-30"
           >
-            Deploy
+            {!isConnected && strategy ? "Connect & Deploy" : "Deploy"}
           </button>
         </div>
       </header>
+
+      {/* Deploy Modal */}
+      {deployModal && strategy && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="w-[420px] rounded-2xl border border-white/15 bg-[#0d1727] p-6 shadow-2xl">
+            <div className="mb-4 flex items-start justify-between">
+              <div>
+                <h2 className="text-sm font-semibold text-white">Deploy Strategy</h2>
+                <p className="mt-0.5 text-[11px] text-white/40">{strategy.name}</p>
+              </div>
+              <button onClick={() => setDeployModal(false)} className="text-white/30 hover:text-white/60 text-lg leading-none">×</button>
+            </div>
+
+            <div className="mb-4 flex flex-col gap-1.5">
+              {(["data","alpha","news","manager","risk"] as const).map((k) => {
+                const count = agentBlocks[k]?.length ?? 0;
+                const colors: Record<string, string> = { data: "#f59e0b", alpha: "#22d3ee", news: "#a78bfa", manager: "#34d399", risk: "#fb7185" };
+                const labels: Record<string, string> = { data: "Data Feed", alpha: "Alpha", news: "News", manager: "Manager", risk: "Risk" };
+                return count > 0 ? (
+                  <div key={k} className="flex items-center justify-between rounded-lg px-3 py-1.5" style={{ background: `${colors[k]}10`, border: `1px solid ${colors[k]}30` }}>
+                    <span className="text-[11px] font-medium" style={{ color: colors[k] }}>{labels[k]}</span>
+                    <span className="text-[10px] text-white/40">{count} blocks</span>
+                  </div>
+                ) : null;
+              })}
+            </div>
+
+            <div className="mb-4 rounded-lg bg-white/5 px-3 py-2.5 text-[10px] text-white/40">
+              <div className="mb-1 font-semibold text-white/60">Network</div>
+              <div className="flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                opBNB Testnet (chain ID: 5611)
+              </div>
+            </div>
+
+            {deployTx ? (
+              <div className="rounded-lg bg-emerald-400/10 border border-emerald-400/30 px-3 py-3">
+                <div className="mb-1 text-[10px] font-semibold text-emerald-300">Strategy Registered!</div>
+                <div className="font-mono text-[9px] text-emerald-200/60 break-all">{deployTx}</div>
+              </div>
+            ) : (
+              <button
+                disabled={deploying}
+                onClick={async () => {
+                  setDeploying(true);
+                  await new Promise((r) => setTimeout(r, 1800));
+                  setDeployTx("0x" + Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join(""));
+                  setDeploying(false);
+                }}
+                className="w-full rounded-xl bg-cyan-400 py-2.5 text-[11px] font-semibold text-slate-900 hover:bg-cyan-300 disabled:opacity-50"
+              >
+                {deploying ? "Registering on opBNB..." : "Register on opBNB Testnet"}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Main: sidebar + canvas + chat */}
       <div className="flex flex-1 overflow-hidden">

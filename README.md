@@ -40,7 +40,8 @@ Open http://localhost:3000
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `ANTHROPIC_API_KEY` | Optional | Enables LLM-powered strategy generation. Falls back to keyword parser if absent. |
+| `OPENAI_API_KEY` | Recommended | GPT-4o-mini for strategy generation (primary LLM). Falls back to smart mock if absent. |
+| `ANTHROPIC_API_KEY` | Optional | Claude fallback if OpenAI is unavailable. |
 
 ## Tech Stack
 
@@ -48,7 +49,7 @@ Open http://localhost:3000
 |-------|-----------|
 | Frontend | Next.js 16, React 19, React Flow, Tailwind CSS 4 |
 | Wallet | wagmi, viem (BSC Testnet + opBNB Testnet) |
-| LLM | Anthropic Claude API |
+| LLM | OpenAI GPT-4o-mini (primary), Anthropic Claude (fallback) |
 | Smart Contract | Solidity, Hardhat (TBD) |
 | Chain | BNB Smart Chain (BSC), opBNB |
 
