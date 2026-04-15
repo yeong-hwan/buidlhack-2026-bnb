@@ -66,7 +66,7 @@ function TopSocket() {
         top: 0,
         left: NOTCH_X,
         width: NOTCH_W,
-        height: NOTCH_H - 1,
+        height: NOTCH_H,
         background: "rgba(0,0,0,0.45)",
         borderRadius: "0 0 4px 4px",
         zIndex: 3,

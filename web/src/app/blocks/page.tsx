@@ -63,7 +63,7 @@ const VALIDATION_RULES = [
   { icon: "🔴", rule: "CAP 블록이 맨 아래가 아닐 때", severity: "warning" },
   { icon: "🔴", rule: "첫 블록이 HAT/CBLOCK이 아닐 때", severity: "warning" },
   { icon: "🟡", rule: "Data/Alpha/News에 emit 블록 없음 → 신호 미전달", severity: "warning" },
-  { icon: "🟡", rule: "Manager에 mgr_on_signal 없이 액션 블록만 있을 때", severity: "warning" },
+  { icon: "🟡", rule: "Manager에 on_alpha/on_news/on_data/schedule 없이 액션 블록만 있을 때", severity: "warning" },
   { icon: "🟡", rule: "Manager가 있는데 Alpha/News 에이전트 없음", severity: "warning" },
   { icon: "🔴", rule: "Manager가 있는데 Risk 에이전트 비어있음", severity: "error" },
 ];

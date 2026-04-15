@@ -46,14 +46,21 @@ export const BLOCK_TYPES = {
   news_when_sentiment: { SENTIMENT: "positive|negative|neutral" },
   news_emit_signal:    { SIGNAL: "BULLISH|BEARISH|NEUTRAL" },
 
-  // Manager — execute on-chain orders
-  mgr_on_signal: { SIGNAL: "BUY|SELL|BULLISH|BEARISH" },
+  // Manager — C-BLOCK triggers wrap their own actions
+  // mgr_on_alpha reacts to Alpha signals only (BUY/SELL/HOLD)
+  // mgr_on_news  reacts to News signals only  (BULLISH/BEARISH/NEUTRAL)
+  // mgr_on_data  reacts to Data signals only  (RISK_ON/RISK_OFF/NEUTRAL)
+  // mgr_schedule runs on a time interval
+  // mgr_if_signal conditional branch inside a trigger block
+  mgr_on_alpha:  { SIGNAL: "BUY|SELL|HOLD" },
+  mgr_on_news:   { SIGNAL: "BULLISH|BEARISH|NEUTRAL" },
+  mgr_on_data:   { SIGNAL: "RISK_ON|RISK_OFF|NEUTRAL" },
+  mgr_schedule:  { N: "number", UNIT: "hours|days|weeks" },
+  mgr_if_signal: { SIGNAL: "BUY|SELL|HOLD|BULLISH|BEARISH|RISK_ON|RISK_OFF" },
   mgr_buy:       { AMOUNT: "number", TOKEN: "BNB|ETH|BTC", DEX: "pancake|market" },
   mgr_sell:      { AMOUNT_PCT: "number(1-100)", TOKEN: "BNB|ETH|BTC" },
-  mgr_repeat:    { N: "number", UNIT: "hours|days|weeks" },
-  mgr_if_signal: { SIGNAL: "BUY|SELL|HOLD|BULLISH|BEARISH" },
 
-  // Risk Agent — always-on guardrails
+  // Risk Agent — always-on guardrails (no trigger needed)
   risk_set_stop_loss:   { PCT: "number(0.1-99)" },
   risk_set_take_profit: { PCT: "number(0.1-1000)" },
   risk_max_position:    { MAX_USDT: "number" },
@@ -70,10 +77,10 @@ export const SYSTEM_PROMPT = `You are a strategy compiler for an on-chain tradin
 Convert a natural language strategy description into a JSON object with blocks for 5 agent layers:
 
 - data:    Market data triggers (price, % change, VIX). Emits RISK_ON / RISK_OFF / NEUTRAL.
-- alpha:   Crypto signal detection (price, volume, RSI, MA cross). Emits BUY / SELL / HOLD.
+- alpha:   Technical signal detection (price, volume, RSI, MA cross). Emits BUY / SELL / HOLD.
 - news:    News/social sentiment (keywords, sentiment). Emits BULLISH / BEARISH / NEUTRAL.
-- manager: Executes on-chain orders based on received signals.
-- risk:    Always-on guardrails (stop loss, take profit, drawdown, cooldown).
+- manager: Executes on-chain orders. Uses C-BLOCK triggers that each wrap their own actions.
+- risk:    Always-on guardrails (stop loss, take profit, drawdown, cooldown). No trigger needed.
 
 VALID BLOCK TYPES AND FIELDS:
 ${Object.entries(BLOCK_TYPES)
@@ -82,24 +89,34 @@ ${Object.entries(BLOCK_TYPES)
   )
   .join("\n")}
 
+SIGNAL LAYER SEPARATION:
+- Alpha emits: BUY / SELL / HOLD
+- News emits:  BULLISH / BEARISH / NEUTRAL
+- Data emits:  RISK_ON / RISK_OFF / NEUTRAL
+- mgr_on_alpha receives ONLY Alpha signals (BUY/SELL/HOLD)
+- mgr_on_news  receives ONLY News signals  (BULLISH/BEARISH/NEUTRAL)
+- mgr_on_data  receives ONLY Data signals  (RISK_ON/RISK_OFF/NEUTRAL)
+- Never mix signal types across trigger blocks
+
 RULES:
 1. Only use block types listed above. Never invent new types.
 2. All field values must match the specified enum/type.
-3. Data flow: data → alpha, alpha → manager, news → manager, manager → risk.
+3. Data flow: data → alpha, alpha → manager, news → manager, manager (guarded by) risk.
 4. data MUST end with feed_emit. alpha MUST end with alpha_emit_signal. news MUST end with news_emit_signal.
-5. manager MUST start with mgr_on_signal or mgr_if_signal.
-6. risk MUST always have stop_loss + take_profit. Never leave risk empty.
+5. Manager MUST use C-BLOCK triggers: mgr_on_alpha, mgr_on_news, mgr_on_data, or mgr_schedule.
+   Each trigger C-BLOCK contains its action children (mgr_buy / mgr_sell / mgr_if_signal).
+6. risk MUST always have stop_loss + take_profit. Risk blocks need NO trigger — they are always active.
 7. Generate 2–4 blocks per active agent.
 8. Only include news blocks if the description mentions news/sentiment/social.
 9. Only include data blocks if the description mentions macro signals (price change, VIX, volatility).
-10. mgr_if_signal and mgr_repeat are C-BLOCKs — their "children" array holds nested action blocks.
-11. risk_if_drawdown is a C-BLOCK — its "children" array holds protective action blocks.
+10. mgr_on_alpha, mgr_on_news, mgr_on_data, mgr_schedule, mgr_if_signal are C-BLOCKs — their "children" array holds nested action blocks.
+11. risk_if_drawdown is a C-BLOCK — its "children" array holds protective action blocks (e.g. risk_cooldown).
 12. Respond in the same language as the user for the "description" field.
 13. Block order within each agent: trigger/condition blocks first, actions in the middle, emit last.
 14. MODIFICATION: When user sends a modification request, only change the specified part, keep everything else.
 15. CURRENT STRATEGY: If provided, use it as the base and apply only the requested changes.
 
-EXAMPLE — RSA oversold + MA golden cross BNB strategy:
+EXAMPLE — RSI oversold + MA golden cross BNB strategy:
 Input: "Buy BNB when RSI is oversold and MA golden cross, stop loss 8%"
 Output:
 {
@@ -114,8 +131,9 @@ Output:
     ],
     "news": [],
     "manager": [
-      {"type":"mgr_on_signal","fields":{"SIGNAL":"BUY"}},
-      {"type":"mgr_buy","fields":{"AMOUNT":100,"TOKEN":"BNB","DEX":"pancake"}}
+      {"type":"mgr_on_alpha","fields":{"SIGNAL":"BUY"},"children":[
+        {"type":"mgr_buy","fields":{"AMOUNT":100,"TOKEN":"BNB","DEX":"pancake"}}
+      ]}
     ],
     "risk": [
       {"type":"risk_set_stop_loss","fields":{"PCT":8}},
@@ -125,25 +143,27 @@ Output:
   }
 }
 
-EXAMPLE — Signal-based branching with cooldown:
-Input: "If BUY signal buy BNB, if SELL signal sell, add cooldown 24h after drawdown"
+EXAMPLE — News sentiment + alpha signal with branching:
+Input: "If alpha BUY and news BULLISH both fire, buy BNB. If news BEARISH, sell. Cooldown on drawdown."
 Output:
 {
-  "name": "Signal Branch Strategy",
-  "description": "매수 신호 시 BNB를 매수하고 매도 신호 시 즉시 청산합니다. 낙폭이 15% 초과 시 24시간 쿨다운을 적용합니다.",
+  "name": "News + Alpha BNB Strategy",
+  "description": "Alpha BUY 신호 시 BNB를 매수하고, News BEARISH 감지 시 즉시 청산합니다. 낙폭 15% 초과 시 24시간 쿨다운을 적용합니다.",
   "agents": {
     "data": [],
     "alpha": [
-      {"type":"alpha_when_price","fields":{"TOKEN":"BNB","OPERATOR":">=","VALUE":300}},
+      {"type":"alpha_rsi","fields":{"TOKEN":"BNB","CONDITION":"oversold","THRESHOLD":30}},
       {"type":"alpha_emit_signal","fields":{"SIGNAL":"BUY","STRENGTH":75}}
     ],
-    "news": [],
+    "news": [
+      {"type":"news_when_sentiment","fields":{"SENTIMENT":"positive"}},
+      {"type":"news_emit_signal","fields":{"SIGNAL":"BULLISH"}}
+    ],
     "manager": [
-      {"type":"mgr_on_signal","fields":{"SIGNAL":"BUY"}},
-      {"type":"mgr_if_signal","fields":{"SIGNAL":"BUY"},"children":[
+      {"type":"mgr_on_alpha","fields":{"SIGNAL":"BUY"},"children":[
         {"type":"mgr_buy","fields":{"AMOUNT":100,"TOKEN":"BNB","DEX":"pancake"}}
       ]},
-      {"type":"mgr_if_signal","fields":{"SIGNAL":"SELL"},"children":[
+      {"type":"mgr_on_news","fields":{"SIGNAL":"BEARISH"},"children":[
         {"type":"mgr_sell","fields":{"AMOUNT_PCT":100,"TOKEN":"BNB"}}
       ]}
     ],
@@ -157,6 +177,35 @@ Output:
   }
 }
 
+EXAMPLE — DCA schedule with data guard:
+Input: "Buy BNB every week only when volatility is low. Stop loss 10%."
+Output:
+{
+  "name": "Low-Vol DCA BNB",
+  "description": "VIX가 낮을 때 매주 BNB를 정기 매수합니다. 변동성 급등 시 RISK OFF 신호로 일시 중단됩니다.",
+  "agents": {
+    "data": [
+      {"type":"feed_vix","fields":{"OPERATOR":"<=","THRESHOLD":20}},
+      {"type":"feed_emit","fields":{"SIGNAL":"RISK_ON"}}
+    ],
+    "alpha": [],
+    "news": [],
+    "manager": [
+      {"type":"mgr_on_data","fields":{"SIGNAL":"RISK_ON"},"children":[
+        {"type":"mgr_buy","fields":{"AMOUNT":50,"TOKEN":"BNB","DEX":"pancake"}}
+      ]},
+      {"type":"mgr_schedule","fields":{"N":1,"UNIT":"weeks"},"children":[
+        {"type":"mgr_buy","fields":{"AMOUNT":50,"TOKEN":"BNB","DEX":"pancake"}}
+      ]}
+    ],
+    "risk": [
+      {"type":"risk_set_stop_loss","fields":{"PCT":10}},
+      {"type":"risk_set_take_profit","fields":{"PCT":25}},
+      {"type":"risk_max_position","fields":{"MAX_USDT":500}}
+    ]
+  }
+}
+
 OUTPUT FORMAT (strict JSON, no markdown, no explanation):
 {
   "name": "Short strategy name (max 5 words)",
@@ -165,7 +214,7 @@ OUTPUT FORMAT (strict JSON, no markdown, no explanation):
     "data":    [],
     "alpha":   [{"type":"...","fields":{...}}, ...],
     "news":    [],
-    "manager": [{"type":"...","fields":{...}}, ...],
+    "manager": [{"type":"mgr_on_alpha","fields":{...},"children":[...]}, ...],
     "risk":    [{"type":"...","fields":{...}}, ...]
   }
 }`;
@@ -193,7 +242,14 @@ export function validateStrategyResult(raw: unknown): StrategyGenerationResult {
 }
 
 function blockSortOrder(type: string): number {
-  if (type.includes("when_") || type === "mgr_on_signal" || type === "feed_price" || type === "feed_change_pct" || type === "feed_vix" || type === "alpha_rsi" || type === "alpha_ma_cross") return 0;
+  // Trigger/condition blocks first
+  if (
+    type.includes("when_") ||
+    type === "mgr_on_alpha" || type === "mgr_on_news" || type === "mgr_on_data" || type === "mgr_schedule" ||
+    type === "feed_price" || type === "feed_change_pct" || type === "feed_vix" ||
+    type === "alpha_rsi" || type === "alpha_ma_cross"
+  ) return 0;
+  // Emit blocks last
   if (type.endsWith("_emit") || type.endsWith("_emit_signal")) return 2;
   return 1;
 }

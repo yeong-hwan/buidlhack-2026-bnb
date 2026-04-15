@@ -10,6 +10,14 @@ export interface BlockError {
   message: string;
 }
 
+// Manager trigger block types — C-BLOCKs that wrap their own actions
+const MANAGER_TRIGGERS = new Set([
+  "mgr_on_alpha",
+  "mgr_on_news",
+  "mgr_on_data",
+  "mgr_schedule",
+]);
+
 export function validateStrategy(agents: AgentBlocks): BlockError[] {
   const errors: BlockError[] = [];
 
@@ -23,6 +31,13 @@ export function validateStrategy(agents: AgentBlocks): BlockError[] {
 }
 
 function validateAgentBlocks(agentKey: string, blocks: StrategyBlock[], errors: BlockError[]) {
+  // Risk agent is always-on stateful guardrails — no trigger required.
+  // Skip trigger/order checks for risk.
+  if (agentKey === "risk") {
+    validateRiskBlocks(blocks, errors);
+    return;
+  }
+
   blocks.forEach((block, idx) => {
     const def = getBlockDef(block.type);
     if (!def) {
@@ -40,7 +55,7 @@ function validateAgentBlocks(agentKey: string, blocks: StrategyBlock[], errors: 
       errors.push({ agent: agentKey, blockIndex: idx, severity: "warning", message: `"${def.label}" is an output block — should be at the bottom` });
     }
 
-    // First block must be a trigger
+    // First block must be a trigger (hat or cblock)
     if (idx === 0 && def.shape !== "hat" && def.shape !== "cblock") {
       errors.push({ agent: agentKey, blockIndex: idx, severity: "warning", message: `Strategy should start with a trigger block` });
     }
@@ -56,29 +71,68 @@ function validateAgentBlocks(agentKey: string, blocks: StrategyBlock[], errors: 
     }
   }
 
-  // Manager must have a signal receiver to trigger actions
+  // Manager must have at least one signal trigger to react to anything
   if (agentKey === "manager") {
-    const hasOnSignal  = blocks.some((b) => b.type === "mgr_on_signal");
-    const hasIfSignal  = blocks.some((b) => b.type === "mgr_if_signal");
-    if (hasAction && !hasOnSignal && !hasIfSignal) {
-      errors.push({ agent: agentKey, severity: "warning", message: `No signal receiver — add "on signal" or "if signal" to trigger actions` });
+    const hasTrigger = blocks.some((b) => MANAGER_TRIGGERS.has(b.type));
+    if (hasAction && !hasTrigger) {
+      errors.push({ agent: agentKey, severity: "warning", message: `No signal trigger — add "on alpha", "on news", "on data", or "schedule" to start execution` });
     }
+  }
+}
+
+function validateRiskBlocks(blocks: StrategyBlock[], errors: BlockError[]) {
+  // Unknown block types
+  blocks.forEach((block, idx) => {
+    if (!getBlockDef(block.type)) {
+      errors.push({ agent: "risk", blockIndex: idx, severity: "error", message: `Unknown block type: ${block.type}` });
+    }
+  });
+
+  // Must have stop loss
+  const hasStopLoss = blocks.some((b) => b.type === "risk_set_stop_loss");
+  if (!hasStopLoss) {
+    errors.push({ agent: "risk", severity: "error", message: `Missing stop loss — required for all strategies` });
+  }
+
+  // Must have take profit
+  const hasTakeProfit = blocks.some((b) => b.type === "risk_set_take_profit");
+  if (!hasTakeProfit) {
+    errors.push({ agent: "risk", severity: "warning", message: `Missing take profit — recommended to define an exit target` });
   }
 }
 
 function validateCrossAgent(agents: AgentBlocks, errors: BlockError[]) {
   const hasAlpha   = (agents.alpha?.length   ?? 0) > 0;
   const hasNews    = (agents.news?.length    ?? 0) > 0;
+  const hasData    = (agents.data?.length    ?? 0) > 0;
   const hasManager = (agents.manager?.length ?? 0) > 0;
   const hasRisk    = (agents.risk?.length    ?? 0) > 0;
 
   // Manager without any signal source
-  if (hasManager && !hasAlpha && !hasNews) {
-    errors.push({ agent: "manager", severity: "warning", message: `No signal source — add Alpha or News agent blocks` });
+  if (hasManager && !hasAlpha && !hasNews && !hasData) {
+    errors.push({ agent: "manager", severity: "warning", message: `No signal source — add Alpha, News, or Data Feed agent blocks` });
   }
 
   // Manager without risk guardrails
   if (hasManager && !hasRisk) {
     errors.push({ agent: "risk", severity: "error", message: `Risk agent is empty — add at least a stop loss` });
+  }
+
+  // Alpha emits but manager has no alpha trigger
+  if (hasAlpha && hasManager) {
+    const managerBlocks = agents.manager ?? [];
+    const hasAlphaTrigger = managerBlocks.some((b) => b.type === "mgr_on_alpha");
+    if (!hasAlphaTrigger) {
+      errors.push({ agent: "manager", severity: "warning", message: `Alpha agent is active but Manager has no "on alpha" trigger — signals will be ignored` });
+    }
+  }
+
+  // News emits but manager has no news trigger
+  if (hasNews && hasManager) {
+    const managerBlocks = agents.manager ?? [];
+    const hasNewsTrigger = managerBlocks.some((b) => b.type === "mgr_on_news");
+    if (!hasNewsTrigger) {
+      errors.push({ agent: "manager", severity: "warning", message: `News agent is active but Manager has no "on news" trigger — signals will be ignored` });
+    }
   }
 }

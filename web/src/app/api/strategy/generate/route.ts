@@ -90,14 +90,12 @@ function generateMockStrategy(input: string, previousStrategy?: StrategyGenerati
 
   // ── Data layer ─────────────────────────────────────────────────────────────
   if (has(lower, "vix", "volatility", "implied vol", "변동성")) {
-    data.push({ type: "feed_vix", fields: { OPERATOR: ">=", THRESHOLD: 25 } });
-  }
-  if (has(lower, "price change", "% change", "pump", "dump", "급등", "급락", "percent")) {
+    data.push({ type: "feed_vix", fields: { OPERATOR: "<=", THRESHOLD: 20 } });
+    data.push({ type: "feed_emit", fields: { SIGNAL: "RISK_ON" } });
+  } else if (has(lower, "price change", "% change", "pump", "dump", "급등", "급락", "percent")) {
     const token = has(lower, "eth") ? "ETH" : has(lower, "btc") ? "BTC" : "BNB";
     const direction = has(lower, "dump", "down", "급락", "하락") ? "down" : "up";
     data.push({ type: "feed_change_pct", fields: { TOKEN: token, DIRECTION: direction, PCT: 5, PERIOD: "24h" } });
-  }
-  if (data.length > 0) {
     data.push({ type: "feed_emit", fields: { SIGNAL: "RISK_ON" } });
   }
 
@@ -126,44 +124,80 @@ function generateMockStrategy(input: string, previousStrategy?: StrategyGenerati
     alpha.push({ type: "alpha_rsi", fields: { TOKEN: token, CONDITION: "oversold", THRESHOLD: 30 } });
   }
 
-  if (alpha.length > 0 && !alpha.some(b => b.type === "alpha_emit_signal")) {
-    alpha.push({ type: "alpha_emit_signal", fields: { SIGNAL: "BUY", STRENGTH: isAggressive ? 85 : isConservative ? 65 : 75 } });
-  }
+  const alphaSignal = has(lower, "sell", "exit", "close", "청산", "매도", "death", "overbought", "과매수") ? "SELL" : "BUY";
+  alpha.push({ type: "alpha_emit_signal", fields: { SIGNAL: alphaSignal, STRENGTH: isAggressive ? 85 : isConservative ? 65 : 75 } });
 
   // ── News layer ──────────────────────────────────────────────────────────────
-  if (has(lower, "news", "sentiment", "뉴스", "감성", "공포", "분위기")) {
-    const sentiment = has(lower, "bearish", "negative", "부정", "하락") ? "negative" : "positive";
-    news.push({ type: "news_when_sentiment", fields: { SENTIMENT: sentiment } });
-    news.push({ type: "news_emit_signal", fields: { SIGNAL: sentiment === "positive" ? "BULLISH" : "BEARISH" } });
-  } else if (has(lower, "announcement", "listing", "upgrade", "keyword", "이벤트", "공시", "상장")) {
-    news.push({ type: "news_when_keyword", fields: { KEYWORD: "BNB upgrade", SOURCE: "news" } });
-    news.push({ type: "news_emit_signal", fields: { SIGNAL: "BULLISH" } });
+  const hasNewsLayer = has(lower, "news", "sentiment", "뉴스", "감성", "공포", "분위기", "announcement", "listing", "upgrade", "이벤트", "공시", "상장");
+  if (hasNewsLayer) {
+    const isBearishSentiment = has(lower, "bearish", "negative", "부정", "하락");
+    news.push({ type: "news_when_sentiment", fields: { SENTIMENT: isBearishSentiment ? "negative" : "positive" } });
+    news.push({ type: "news_emit_signal", fields: { SIGNAL: isBearishSentiment ? "BEARISH" : "BULLISH" } });
   }
 
   // ── Manager layer ───────────────────────────────────────────────────────────
-  if (has(lower, "repeat", "every", "periodic", "주기", "매일", "매주", "daily", "weekly")) {
-    manager.push({ type: "mgr_on_signal", fields: { SIGNAL: "BUY" } });
-    const unit = has(lower, "hour", "시간") ? "hours" : has(lower, "week", "주") ? "weeks" : "days";
+  // Each trigger is a C-BLOCK that wraps its own actions
+  const amount = isAggressive ? 200 : isConservative ? 50 : 100;
+
+  if (has(lower, "schedule", "repeat", "every", "periodic", "주기", "매일", "매주", "daily", "weekly", "dca")) {
+    // Time-based schedule — independent of signals
+    const unit = has(lower, "hour", "시간") ? "hours" : has(lower, "week", "주", "weekly") ? "weeks" : "days";
     const n = has(lower, "7") ? 7 : 1;
-    const amount = isAggressive ? 200 : isConservative ? 50 : 100;
-    manager.push({ type: "mgr_repeat", fields: { N: n, UNIT: unit }, children: [
-      { type: "mgr_buy", fields: { AMOUNT: amount, TOKEN: token, DEX: "pancake" } },
-    ]});
-  } else if (has(lower, "branch", "if buy", "if sell", "분기", "조건부")) {
-    manager.push({ type: "mgr_on_signal", fields: { SIGNAL: "BUY" } });
-    manager.push({ type: "mgr_if_signal", fields: { SIGNAL: "BUY" }, children: [
-      { type: "mgr_buy", fields: { AMOUNT: 100, TOKEN: token, DEX: "pancake" } },
-    ]});
-    manager.push({ type: "mgr_if_signal", fields: { SIGNAL: "SELL" }, children: [
-      { type: "mgr_sell", fields: { AMOUNT_PCT: 100, TOKEN: token } },
-    ]});
-  } else if (has(lower, "sell", "exit", "close", "청산", "매도")) {
-    manager.push({ type: "mgr_on_signal", fields: { SIGNAL: "SELL" } });
-    manager.push({ type: "mgr_sell", fields: { AMOUNT_PCT: 100, TOKEN: token } });
-  } else {
-    manager.push({ type: "mgr_on_signal", fields: { SIGNAL: "BUY" } });
-    const amount = isAggressive ? 200 : isConservative ? 50 : 100;
-    manager.push({ type: "mgr_buy", fields: { AMOUNT: amount, TOKEN: token, DEX: "pancake" } });
+    manager.push({
+      type: "mgr_schedule", fields: { N: n, UNIT: unit }, children: [
+        { type: "mgr_buy", fields: { AMOUNT: amount, TOKEN: token, DEX: "pancake" } },
+      ],
+    });
+  }
+
+  if (data.length > 0) {
+    // Data Feed is active — add data trigger
+    manager.push({
+      type: "mgr_on_data", fields: { SIGNAL: "RISK_ON" }, children: [
+        { type: "mgr_buy", fields: { AMOUNT: amount, TOKEN: token, DEX: "pancake" } },
+      ],
+    });
+  } else if (hasNewsLayer) {
+    // News is active — add news trigger alongside alpha trigger
+    const newsSignal = has(lower, "bearish", "negative", "부정") ? "BEARISH" : "BULLISH";
+    if (newsSignal === "BEARISH") {
+      manager.push({
+        type: "mgr_on_alpha", fields: { SIGNAL: alphaSignal }, children: [
+          { type: "mgr_buy", fields: { AMOUNT: amount, TOKEN: token, DEX: "pancake" } },
+        ],
+      });
+      manager.push({
+        type: "mgr_on_news", fields: { SIGNAL: "BEARISH" }, children: [
+          { type: "mgr_sell", fields: { AMOUNT_PCT: 100, TOKEN: token } },
+        ],
+      });
+    } else {
+      manager.push({
+        type: "mgr_on_alpha", fields: { SIGNAL: alphaSignal }, children: [
+          { type: "mgr_buy", fields: { AMOUNT: amount, TOKEN: token, DEX: "pancake" } },
+        ],
+      });
+      manager.push({
+        type: "mgr_on_news", fields: { SIGNAL: "BULLISH" }, children: [
+          { type: "mgr_buy", fields: { AMOUNT: Math.round(amount * 0.5), TOKEN: token, DEX: "pancake" } },
+        ],
+      });
+    }
+  } else if (!manager.some(b => b.type === "mgr_on_alpha") && !has(lower, "schedule", "dca", "주기")) {
+    // Default: single alpha trigger
+    if (alphaSignal === "SELL") {
+      manager.push({
+        type: "mgr_on_alpha", fields: { SIGNAL: "SELL" }, children: [
+          { type: "mgr_sell", fields: { AMOUNT_PCT: 100, TOKEN: token } },
+        ],
+      });
+    } else {
+      manager.push({
+        type: "mgr_on_alpha", fields: { SIGNAL: "BUY" }, children: [
+          { type: "mgr_buy", fields: { AMOUNT: amount, TOKEN: token, DEX: "pancake" } },
+        ],
+      });
+    }
   }
 
   // ── Risk layer ──────────────────────────────────────────────────────────────
@@ -182,10 +216,11 @@ function generateMockStrategy(input: string, previousStrategy?: StrategyGenerati
   risk.push({ type: "risk_set_take_profit", fields: { PCT: tpPct } });
 
   if (isConservative || has(lower, "drawdown", "낙폭", "리스크 관리", "risk limit")) {
-    const ddPct = isConservative ? 10 : 20;
-    risk.push({ type: "risk_if_drawdown", fields: { PCT: ddPct }, children: [
-      { type: "risk_cooldown", fields: { N: 24, UNIT: "hours" } },
-    ]});
+    risk.push({
+      type: "risk_if_drawdown", fields: { PCT: isConservative ? 10 : 20 }, children: [
+        { type: "risk_cooldown", fields: { N: 24, UNIT: "hours" } },
+      ],
+    });
   }
 
   if (has(lower, "max position", "position limit", "최대 포지션", "exposure") || isConservative) {
@@ -200,10 +235,10 @@ function generateMockStrategy(input: string, previousStrategy?: StrategyGenerati
   else if (isConservative) name = "Conservative Safe Strategy";
   else if (has(lower, "rsi", "oversold", "overbought")) name = `RSI ${token} Strategy`;
   else if (has(lower, "ma", "golden cross", "ma cross")) name = `MA Cross ${token} Strategy`;
-  else if (has(lower, "news", "sentiment")) name = "News Sentiment Strategy";
+  else if (hasNewsLayer) name = "News Sentiment Strategy";
   else if (has(lower, "volume", "거래량")) name = "Volume Spike Strategy";
   else if (has(lower, "vix", "변동성")) name = "Volatility Signal Strategy";
-  else if (has(lower, "repeat", "weekly", "daily")) name = `Periodic ${token} Strategy`;
+  else if (has(lower, "schedule", "repeat", "weekly", "daily", "dca")) name = `Periodic ${token} Strategy`;
 
   // ── Description ──────────────────────────────────────────────────────────────
   const parts: string[] = [];
@@ -216,7 +251,7 @@ function generateMockStrategy(input: string, previousStrategy?: StrategyGenerati
       const b = alpha.find(b => b.type === "alpha_ma_cross")!;
       parts.push(`${b.fields.TOKEN} MA${b.fields.SHORT}×${b.fields.LONG} ${b.fields.CROSS === "golden" ? "골든크로스" : "데드크로스"} 기반 신호입니다.`);
     }
-    if (news.length > 0) parts.push("뉴스 감성을 추가 필터로 사용합니다.");
+    if (hasNewsLayer) parts.push("뉴스 감성을 추가 필터로 사용합니다.");
     parts.push(`리스크: 손절 -${slPct}%, 익절 +${tpPct}%.`);
   } else {
     if (data.length > 0) parts.push("Monitoring market data signals.");
@@ -227,7 +262,7 @@ function generateMockStrategy(input: string, previousStrategy?: StrategyGenerati
       const b = alpha.find(b => b.type === "alpha_ma_cross")!;
       parts.push(`Entering on MA${b.fields.SHORT}×${b.fields.LONG} ${b.fields.CROSS} cross for ${b.fields.TOKEN}.`);
     }
-    if (news.length > 0) parts.push("Using news sentiment as additional filter.");
+    if (hasNewsLayer) parts.push("Using news sentiment as additional filter.");
     parts.push(`Risk: stop loss -${slPct}%, take profit +${tpPct}%.`);
   }
 

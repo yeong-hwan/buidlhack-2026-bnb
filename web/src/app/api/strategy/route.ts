@@ -30,38 +30,24 @@ interface Rule {
 
 const RULES: Rule[] = [
   // Data Feed rules
-  { keywords: ["nasdaq", "us market", "s&p", "snp", "spx"], agent: "data", block: { type: "feed_nasdaq", fields: { ASSET: "NQ1!", CONDITION: "above_ma", PERIOD: 20 } } },
-  { keywords: ["interest rate", "fed", "federal reserve", "rate hike", "rate cut"], agent: "data", block: { type: "feed_interest_rate", fields: { SOURCE: "fed_funds", CHANGE: "any" } } },
-  { keywords: ["exchange rate", "fx", "usd", "eur", "환율"], agent: "data", block: { type: "feed_fx_rate", fields: { PAIR: "USD/KRW", THRESHOLD: 1300 } } },
-  { keywords: ["gold", "silver", "commodity"], agent: "data", block: { type: "feed_commodity", fields: { ASSET: "GOLD", DIRECTION: "up" } } },
-  { keywords: ["fear", "greed", "fear and greed", "sentiment index"], agent: "data", block: { type: "feed_fear_greed", fields: { ZONE: "extreme_fear" } } },
   { keywords: ["vix", "volatility", "implied vol"], agent: "data", block: { type: "feed_vix", fields: { THRESHOLD: 20, OPERATOR: ">=" } } },
+  { keywords: ["price change", "% change", "pump", "dump", "급등", "급락"], agent: "data", block: { type: "feed_change_pct", fields: { TOKEN: "BNB", DIRECTION: "up", PCT: 5, PERIOD: "24h" } } },
 
   // Alpha rules
-  { keywords: ["momentum", "trend", "breakout", "pump"], agent: "alpha", block: { type: "alpha_when_momentum", fields: { DIRECTION: "above", PERIOD: 7 } } },
-  { keywords: ["price above", "price over", "price hit"], agent: "alpha", block: { type: "alpha_when_price", fields: { TOKEN: "BNB", OPERATOR: ">=", VALUE: 300 } } },
-  { keywords: ["volume spike", "high volume", "volume surge"], agent: "alpha", block: { type: "alpha_when_volume", fields: { MULTIPLIER: 2 } } },
-  { keywords: ["ai decide", "ai signal", "let ai", "autonomous", "ai judge"], agent: "alpha", block: { type: "alpha_ai_decide", fields: { CONTEXT: "market_conditions", CONFIDENCE: 70 } } },
+  { keywords: ["price above", "price over", "price hit", "breakout", "돌파"], agent: "alpha", block: { type: "alpha_when_price", fields: { TOKEN: "BNB", OPERATOR: ">=", VALUE: 300 } } },
+  { keywords: ["volume spike", "high volume", "volume surge", "거래량"], agent: "alpha", block: { type: "alpha_when_volume", fields: { MULTIPLIER: 2 } } },
+  { keywords: ["rsi", "oversold", "과매도"], agent: "alpha", block: { type: "alpha_rsi", fields: { TOKEN: "BNB", CONDITION: "oversold", THRESHOLD: 30 } } },
+  { keywords: ["golden cross", "ma cross", "moving average", "골든크로스"], agent: "alpha", block: { type: "alpha_ma_cross", fields: { TOKEN: "BNB", CROSS: "golden", SHORT: 7, LONG: 25 } } },
 
-  // News / Semantic rules
-  { keywords: ["news", "sentiment", "bullish", "bearish"], agent: "news", block: { type: "news_when_sentiment", fields: { SENTIMENT: "positive" } } },
-  { keywords: ["keyword", "announcement", "upgrade", "listing"], agent: "news", block: { type: "news_when_keyword", fields: { KEYWORD: "BNB upgrade", SOURCE: "news" } } },
-  { keywords: ["semantic", "context", "meaning", "interpret", "언어"], agent: "news", block: { type: "news_semantic_filter", fields: { QUERY: "bullish market signal", THRESHOLD: 0.7 } } },
-  { keywords: ["fed statement", "central bank", "policy", "macro event"], agent: "news", block: { type: "news_semantic_filter", fields: { QUERY: "dovish fed policy", THRESHOLD: 0.75 } } },
-
-  // Manager rules
-  { keywords: ["dca", "dollar cost", "accumulate", "buy regularly"], agent: "manager", block: { type: "mgr_dca", fields: { AMOUNT: 100, TOKEN: "BNB", INTERVAL: "weekly" } } },
-  { keywords: ["buy", "long", "enter"], agent: "manager", block: { type: "mgr_buy", fields: { AMOUNT: 100, TOKEN: "BNB", DEX: "pancake" } } },
-  { keywords: ["sell", "exit", "close"], agent: "manager", block: { type: "mgr_sell", fields: { AMOUNT_PCT: 100, TOKEN: "BNB" } } },
-  { keywords: ["rebalance", "portfolio", "ratio", "maintain"], agent: "manager", block: { type: "mgr_rebalance", fields: { TOKEN: "BNB", TARGET_PCT: 50 } } },
-  { keywords: ["every week", "every day", "schedule", "repeat", "weekly", "daily"], agent: "manager", block: { type: "mgr_repeat", fields: { N: 1, UNIT: "weeks" } } },
+  // News rules
+  { keywords: ["news", "sentiment", "bullish", "bearish", "뉴스", "감성"], agent: "news", block: { type: "news_when_sentiment", fields: { SENTIMENT: "positive" } } },
+  { keywords: ["keyword", "announcement", "upgrade", "listing", "공시", "상장"], agent: "news", block: { type: "news_when_keyword", fields: { KEYWORD: "BNB upgrade", SOURCE: "news" } } },
 
   // Risk rules
-  { keywords: ["stop loss", "stop-loss", "cut loss"], agent: "risk", block: { type: "risk_set_stop_loss", fields: { PCT: 10 } } },
-  { keywords: ["take profit", "profit target", "tp"], agent: "risk", block: { type: "risk_set_take_profit", fields: { PCT: 20 } } },
+  { keywords: ["stop loss", "stop-loss", "cut loss", "손절"], agent: "risk", block: { type: "risk_set_stop_loss", fields: { PCT: 10 } } },
+  { keywords: ["take profit", "profit target", "tp", "익절"], agent: "risk", block: { type: "risk_set_take_profit", fields: { PCT: 20 } } },
   { keywords: ["max position", "position limit", "exposure"], agent: "risk", block: { type: "risk_max_position", fields: { MAX_USDT: 500 } } },
-  { keywords: ["drawdown", "portfolio loss", "risk limit"], agent: "risk", block: { type: "risk_max_drawdown", fields: { PCT: 20 } } },
-  { keywords: ["daily limit", "daily loss", "loss cap"], agent: "risk", block: { type: "risk_daily_loss_limit", fields: { LIMIT_USDT: 100 } } },
+  { keywords: ["drawdown", "portfolio loss", "risk limit", "낙폭"], agent: "risk", block: { type: "risk_if_drawdown", fields: { PCT: 20 }, children: [{ type: "risk_cooldown", fields: { N: 24, UNIT: "hours" } }] } },
 ];
 
 function parseAgents(input: string): AgentBlocks {
@@ -76,14 +62,65 @@ function parseAgents(input: string): AgentBlocks {
     }
   }
 
+  // Defaults
   if (agents.alpha.length === 0) {
-    agents.alpha.push({ type: "alpha_when_momentum", fields: { DIRECTION: "above", PERIOD: 7 } });
+    agents.alpha.push({ type: "alpha_rsi", fields: { TOKEN: "BNB", CONDITION: "oversold", THRESHOLD: 30 } });
   }
-  if (agents.manager.length === 0) {
-    agents.manager.push({ type: "mgr_buy", fields: { AMOUNT: 100, TOKEN: "BNB", DEX: "pancake" } });
+
+  // Always emit from alpha
+  agents.alpha.push({ type: "alpha_emit_signal", fields: { SIGNAL: "BUY", STRENGTH: 75 } });
+
+  // Always emit from data if data blocks exist
+  if (agents.data.length > 0) {
+    agents.data.push({ type: "feed_emit", fields: { SIGNAL: "RISK_ON" } });
   }
-  if (agents.risk.length === 0) {
-    agents.risk.push({ type: "risk_set_stop_loss", fields: { PCT: 10 } });
+
+  // Always emit from news if news blocks exist
+  if (agents.news.length > 0) {
+    agents.news.push({ type: "news_emit_signal", fields: { SIGNAL: "BULLISH" } });
+  }
+
+  // Manager: C-BLOCK triggers wrapping their actions
+  const hasBuy  = lower.includes("buy")  || lower.includes("매수") || lower.includes("long");
+  const hasSell = lower.includes("sell") || lower.includes("매도") || lower.includes("exit");
+
+  if (agents.news.length > 0 && hasSell) {
+    agents.manager.push({
+      type: "mgr_on_alpha", fields: { SIGNAL: "BUY" }, children: [
+        { type: "mgr_buy", fields: { AMOUNT: 100, TOKEN: "BNB", DEX: "pancake" } },
+      ],
+    });
+    agents.manager.push({
+      type: "mgr_on_news", fields: { SIGNAL: "BEARISH" }, children: [
+        { type: "mgr_sell", fields: { AMOUNT_PCT: 100, TOKEN: "BNB" } },
+      ],
+    });
+  } else if (agents.data.length > 0) {
+    agents.manager.push({
+      type: "mgr_on_data", fields: { SIGNAL: "RISK_ON" }, children: [
+        { type: "mgr_buy", fields: { AMOUNT: 100, TOKEN: "BNB", DEX: "pancake" } },
+      ],
+    });
+  } else if (hasSell) {
+    agents.manager.push({
+      type: "mgr_on_alpha", fields: { SIGNAL: "SELL" }, children: [
+        { type: "mgr_sell", fields: { AMOUNT_PCT: 100, TOKEN: "BNB" } },
+      ],
+    });
+  } else {
+    agents.manager.push({
+      type: "mgr_on_alpha", fields: { SIGNAL: "BUY" }, children: [
+        { type: "mgr_buy", fields: { AMOUNT: 100, TOKEN: "BNB", DEX: "pancake" } },
+      ],
+    });
+  }
+
+  // Risk defaults
+  if (!agents.risk.some(b => b.type === "risk_set_stop_loss")) {
+    agents.risk.unshift({ type: "risk_set_stop_loss", fields: { PCT: 10 } });
+  }
+  if (!agents.risk.some(b => b.type === "risk_set_take_profit")) {
+    agents.risk.push({ type: "risk_set_take_profit", fields: { PCT: 20 } });
   }
 
   return agents;
@@ -91,12 +128,12 @@ function parseAgents(input: string): AgentBlocks {
 
 function generateName(input: string): string {
   const lower = input.toLowerCase();
-  if (lower.includes("dca")) return "DCA Accumulation Strategy";
-  if (lower.includes("momentum")) return "Momentum Strategy";
-  if (lower.includes("rebalance")) return "Portfolio Rebalance Strategy";
-  if (lower.includes("nasdaq") || lower.includes("macro")) return "Macro-Aware Strategy";
+  if (lower.includes("dca") || lower.includes("schedule")) return "Periodic DCA Strategy";
+  if (lower.includes("rsi") || lower.includes("oversold")) return "RSI BNB Strategy";
+  if (lower.includes("golden cross") || lower.includes("ma cross")) return "MA Cross Strategy";
+  if (lower.includes("vix") || lower.includes("volatility")) return "Volatility Signal Strategy";
   if (lower.includes("news") || lower.includes("sentiment")) return "News Alpha Strategy";
-  if (lower.includes("semantic") || lower.includes("fed")) return "Semantic Strategy";
+  if (lower.includes("volume")) return "Volume Spike Strategy";
   return "Custom Strategy";
 }
 

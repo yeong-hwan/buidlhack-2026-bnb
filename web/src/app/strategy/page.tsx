@@ -31,8 +31,7 @@ const DEFAULT_AGENTS: AgentBlocks = {
   ],
   news: [],
   manager: [
-    { type: "mgr_on_signal", fields: { SIGNAL: "BUY" } },
-    { type: "mgr_if_signal", fields: { SIGNAL: "BUY" }, children: [
+    { type: "mgr_on_alpha", fields: { SIGNAL: "BUY" }, children: [
       { type: "mgr_buy", fields: { AMOUNT: 100, TOKEN: "BNB", DEX: "pancake" } },
     ]},
   ],

@@ -1,10 +1,11 @@
 /**
- * Block Registry — 20-block minimal language
+ * Block Registry — 24-block minimal language
  *
  * Design principles:
+ *  - Signal source is always explicit (mgr_on_alpha / mgr_on_news / mgr_on_data)
+ *  - Manager triggers are C-BLOCKs — each trigger wraps its own actions
+ *  - Risk blocks are always-on guardrails, never event-triggered
  *  - Every block must be intuitively understandable
- *  - Enough to express most real-world strategies
- *  - Structured for easy future extension
  */
 
 export type FieldType =
@@ -41,7 +42,7 @@ const OPERATORS = [
 export const BLOCK_REGISTRY: BlockDefinition[] = [
 
   // ─── Data Feed ────────────────────────────────────────────────────────────
-  // Role: Receive external market signals → emit RISK_ON / RISK_OFF / NEUTRAL
+  // Role: Monitor macro signals → emit RISK_ON / RISK_OFF / NEUTRAL
 
   {
     type: "feed_price", agent: "data", keyword: "price", label: "price",
@@ -87,7 +88,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
 
   // ─── Alpha Agent ──────────────────────────────────────────────────────────
-  // Role: Detect crypto-specific signals → emit BUY / SELL / HOLD
+  // Role: Detect technical signals → emit BUY / SELL / HOLD
 
   {
     type: "alpha_when_price", agent: "alpha", keyword: "when", label: "price",
@@ -144,7 +145,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
 
   // ─── News Agent ───────────────────────────────────────────────────────────
-  // Role: Monitor news/social sentiment → emit BULLISH / BEARISH / NEUTRAL
+  // Role: Monitor sentiment → emit BULLISH / BEARISH / NEUTRAL
 
   {
     type: "news_when_keyword", agent: "news", keyword: "when", label: "keyword",
@@ -176,16 +177,82 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
   },
 
   // ─── Manager ──────────────────────────────────────────────────────────────
-  // Role: Receive signals → execute on-chain orders
+  // Role: React to signals → execute on-chain orders
+  //
+  // Trigger C-BLOCKs — each wraps its own set of actions:
+  //   mgr_on_alpha  → reacts to Alpha agent signals (BUY / SELL / HOLD)
+  //   mgr_on_news   → reacts to News agent signals  (BULLISH / BEARISH / NEUTRAL)
+  //   mgr_on_data   → reacts to Data agent signals  (RISK_ON / RISK_OFF / NEUTRAL)
+  //   mgr_schedule  → time-based execution (every N hours / days / weeks)
+  //
+  // Conditional C-BLOCK:
+  //   mgr_if_signal → branch within a flow based on signal value
 
   {
-    type: "mgr_on_signal", agent: "manager", keyword: "on", label: "signal",
-    shape: "hat",
+    type: "mgr_on_alpha", agent: "manager", keyword: "on alpha", label: "signal",
+    shape: "cblock",
     fields: {
-      SIGNAL: { kind: "select", options: [{ label: "BUY", value: "BUY" }, { label: "SELL", value: "SELL" }, { label: "BULLISH", value: "BULLISH" }, { label: "BEARISH", value: "BEARISH" }] },
+      SIGNAL: { kind: "select", options: [
+        { label: "BUY",  value: "BUY"  },
+        { label: "SELL", value: "SELL" },
+        { label: "HOLD", value: "HOLD" },
+      ]},
     },
     defaults: { SIGNAL: "BUY" },
-    detail: (f) => String(f.SIGNAL),
+    detail: (f) => `alpha → ${f.SIGNAL}`,
+  },
+  {
+    type: "mgr_on_news", agent: "manager", keyword: "on news", label: "signal",
+    shape: "cblock",
+    fields: {
+      SIGNAL: { kind: "select", options: [
+        { label: "BULLISH", value: "BULLISH" },
+        { label: "BEARISH", value: "BEARISH" },
+        { label: "NEUTRAL", value: "NEUTRAL" },
+      ]},
+    },
+    defaults: { SIGNAL: "BULLISH" },
+    detail: (f) => `news → ${f.SIGNAL}`,
+  },
+  {
+    type: "mgr_on_data", agent: "manager", keyword: "on data", label: "signal",
+    shape: "cblock",
+    fields: {
+      SIGNAL: { kind: "select", options: [
+        { label: "RISK ON",  value: "RISK_ON"  },
+        { label: "RISK OFF", value: "RISK_OFF" },
+        { label: "NEUTRAL",  value: "NEUTRAL"  },
+      ]},
+    },
+    defaults: { SIGNAL: "RISK_ON" },
+    detail: (f) => `data → ${f.SIGNAL}`,
+  },
+  {
+    type: "mgr_schedule", agent: "manager", keyword: "schedule", label: "every",
+    shape: "cblock",
+    fields: {
+      N:    { kind: "number", min: 1 },
+      UNIT: { kind: "select", options: [{ label: "hours", value: "hours" }, { label: "days", value: "days" }, { label: "weeks", value: "weeks" }] },
+    },
+    defaults: { N: 1, UNIT: "days" },
+    detail: (f) => `every ${f.N} ${f.UNIT}`,
+  },
+  {
+    type: "mgr_if_signal", agent: "manager", keyword: "if", label: "signal =",
+    shape: "cblock",
+    fields: {
+      SIGNAL: { kind: "select", options: [
+        { label: "BUY",     value: "BUY"     },
+        { label: "SELL",    value: "SELL"    },
+        { label: "HOLD",    value: "HOLD"    },
+        { label: "BULLISH", value: "BULLISH" },
+        { label: "BEARISH", value: "BEARISH" },
+        { label: "RISK ON", value: "RISK_ON" },
+        { label: "RISK OFF",value: "RISK_OFF"},
+      ]},
+    },
+    defaults: { SIGNAL: "BUY" },
+    detail: (f) => `if signal = ${f.SIGNAL}`,
   },
   {
     type: "mgr_buy", agent: "manager", keyword: "buy", label: "token",
@@ -208,28 +275,10 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     defaults: { AMOUNT_PCT: 100, TOKEN: "BNB" },
     detail: (f) => `${f.AMOUNT_PCT}% of ${f.TOKEN}`,
   },
-  {
-    type: "mgr_repeat", agent: "manager", keyword: "repeat", label: "every",
-    shape: "cblock",
-    fields: {
-      N:    { kind: "number", min: 1 },
-      UNIT: { kind: "select", options: [{ label: "hours", value: "hours" }, { label: "days", value: "days" }, { label: "weeks", value: "weeks" }] },
-    },
-    defaults: { N: 1, UNIT: "days" },
-    detail: (f) => `${f.N} ${f.UNIT}`,
-  },
-  {
-    type: "mgr_if_signal", agent: "manager", keyword: "if", label: "signal =",
-    shape: "cblock",
-    fields: {
-      SIGNAL: { kind: "select", options: [{ label: "BUY", value: "BUY" }, { label: "SELL", value: "SELL" }, { label: "HOLD", value: "HOLD" }, { label: "BULLISH", value: "BULLISH" }, { label: "BEARISH", value: "BEARISH" }] },
-    },
-    defaults: { SIGNAL: "BUY" },
-    detail: (f) => `signal = ${f.SIGNAL}`,
-  },
 
   // ─── Risk Agent ───────────────────────────────────────────────────────────
-  // Role: Enforce guardrails — always active while strategy is running
+  // Role: Always-on guardrails — stateful rules enforced continuously
+  // NOTE: Risk blocks do NOT need a trigger. They are active from strategy start.
 
   {
     type: "risk_set_stop_loss", agent: "risk", keyword: "stop", label: "loss",
@@ -275,7 +324,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       UNIT: { kind: "select", options: [{ label: "hours", value: "hours" }, { label: "days", value: "days" }] },
     },
     defaults: { N: 24, UNIT: "hours" },
-    detail: (f) => `${f.N} ${f.UNIT} after loss`,
+    detail: (f) => `${f.N} ${f.UNIT} pause`,
   },
 ];
 
