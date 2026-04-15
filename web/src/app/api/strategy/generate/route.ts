@@ -123,17 +123,31 @@ function generateMockStrategy(input: string, previousStrategy?: StrategyGenerati
   }
 
   // ── Alpha layer ─────────────────────────────────────────────────────────────
+  const isAggressive = has(lower, "aggressive", "공격적");
+  const isConservative = has(lower, "conservative", "안전", "보수적");
+  const isScalping = has(lower, "scalp", "scalping", "스캘핑", "단타");
+  const isSwing = has(lower, "swing", "스윙");
+
   if (has(lower, "autonomous", "ai decide", "ai signal", "let ai", "ai judge", "ai trading")) {
-    alpha.push({ type: "alpha_ai_decide", fields: { CONTEXT: "all_data", CONFIDENCE: 75 } });
-    alpha.push({ type: "alpha_emit_signal", fields: { SIGNAL: "BUY", STRENGTH: 80 } });
+    alpha.push({ type: "alpha_ai_decide", fields: { CONTEXT: "all_data", CONFIDENCE: isAggressive ? 60 : 75 } });
+    alpha.push({ type: "alpha_emit_signal", fields: { SIGNAL: "BUY", STRENGTH: isAggressive ? 90 : 80 } });
+  } else if (isScalping) {
+    alpha.push({ type: "alpha_when_momentum", fields: { DIRECTION: "above", PERIOD: 1 } });
+    alpha.push({ type: "alpha_when_volume", fields: { MULTIPLIER: 3 } });
+    alpha.push({ type: "alpha_emit_signal", fields: { SIGNAL: "BUY", STRENGTH: 85 } });
+  } else if (isSwing) {
+    const period = has(lower, "30") ? 30 : has(lower, "21") ? 21 : 14;
+    alpha.push({ type: "alpha_when_momentum", fields: { DIRECTION: "above", PERIOD: period } });
+    alpha.push({ type: "alpha_emit_signal", fields: { SIGNAL: "BUY", STRENGTH: 70 } });
   } else if (has(lower, "momentum", "trend", "breakout", "pump", "bullish run")) {
-    alpha.push({ type: "alpha_when_momentum", fields: { DIRECTION: "above", PERIOD: 14 } });
+    const period = isAggressive ? 7 : isConservative ? 21 : 14;
+    alpha.push({ type: "alpha_when_momentum", fields: { DIRECTION: "above", PERIOD: period } });
   } else if (has(lower, "price", "price above", "price over", "hit", "reach", "target")) {
     const token = has(lower, "eth") ? "ETH" : has(lower, "btc") ? "BTC" : "BNB";
     const value = has(lower, "eth") ? 3000 : has(lower, "btc") ? 60000 : 300;
     alpha.push({ type: "alpha_when_price", fields: { TOKEN: token, OPERATOR: ">=", VALUE: value } });
   } else if (has(lower, "volume", "spike", "surge")) {
-    alpha.push({ type: "alpha_when_volume", fields: { MULTIPLIER: 2 } });
+    alpha.push({ type: "alpha_when_volume", fields: { MULTIPLIER: isAggressive ? 1.5 : 2 } });
   } else if (!has(lower, "rebalance", "portfolio ratio")) {
     // Default: momentum signal
     alpha.push({ type: "alpha_when_momentum", fields: { DIRECTION: "above", PERIOD: 7 } });
@@ -141,7 +155,7 @@ function generateMockStrategy(input: string, previousStrategy?: StrategyGenerati
 
   // Always add emit signal if alpha has triggers but no emit
   if (alpha.length > 0 && !alpha.some((b) => b.type === "alpha_emit_signal")) {
-    alpha.push({ type: "alpha_emit_signal", fields: { SIGNAL: "BUY", STRENGTH: 75 } });
+    alpha.push({ type: "alpha_emit_signal", fields: { SIGNAL: "BUY", STRENGTH: isAggressive ? 85 : isConservative ? 65 : 75 } });
   }
 
   // ── News layer ──────────────────────────────────────────────────────────────
@@ -166,14 +180,18 @@ function generateMockStrategy(input: string, previousStrategy?: StrategyGenerati
   // ── Manager layer ────────────────────────────────────────────────────────────
   if (has(lower, "autonomous", "ai trading", "fully automated")) {
     manager.push({ type: "mgr_on_signal", fields: { SIGNAL: "BUY" } });
-    manager.push({ type: "mgr_buy", fields: { AMOUNT: 100, TOKEN: "BNB", DEX: "pancake" } });
+    manager.push({ type: "mgr_buy", fields: { AMOUNT: isAggressive ? 200 : 100, TOKEN: "BNB", DEX: "pancake" } });
     manager.push({ type: "mgr_sell", fields: { AMOUNT_PCT: 50, TOKEN: "BNB" } });
+  } else if (isScalping) {
+    manager.push({ type: "mgr_on_signal", fields: { SIGNAL: "BUY" } });
+    manager.push({ type: "mgr_buy", fields: { AMOUNT: 50, TOKEN: "BNB", DEX: "pancake" } });
+    manager.push({ type: "mgr_repeat", fields: { N: 1, UNIT: "hours" } });
   } else if (has(lower, "dca", "dollar cost", "accumulate", "buy regularly", "every week", "weekly", "every month", "monthly")) {
     const token = has(lower, "eth") ? "ETH" : has(lower, "btc") ? "BTC" : "BNB";
     const interval = has(lower, "daily", "every day") ? "daily" : has(lower, "monthly", "every month") ? "monthly" : "weekly";
     const amount = has(lower, "500") ? 500 : has(lower, "200") ? 200 : has(lower, "50") ? 50 : 100;
     manager.push({ type: "mgr_dca", fields: { AMOUNT: amount, TOKEN: token, INTERVAL: interval } });
-    manager.push({ type: "mgr_repeat", fields: { N: 1, UNIT: interval === "daily" ? "days" : interval === "monthly" ? "weeks" : "weeks" } });
+    manager.push({ type: "mgr_repeat", fields: { N: 1, UNIT: interval === "daily" ? "days" : "weeks" } });
   } else if (has(lower, "rebalance", "50/50", "portfolio ratio", "maintain ratio")) {
     const token = has(lower, "eth") ? "ETH" : has(lower, "btc") ? "BTC" : "BNB";
     const targetPct = has(lower, "30") ? 30 : has(lower, "60") ? 60 : has(lower, "40") ? 40 : 50;
@@ -186,45 +204,60 @@ function generateMockStrategy(input: string, previousStrategy?: StrategyGenerati
     // Default: signal-triggered buy
     manager.push({ type: "mgr_on_signal", fields: { SIGNAL: "BUY" } });
     const token = has(lower, "eth") ? "ETH" : has(lower, "btc") ? "BTC" : "BNB";
-    manager.push({ type: "mgr_buy", fields: { AMOUNT: 100, TOKEN: token, DEX: "pancake" } });
+    const amount = isAggressive ? 200 : isConservative ? 50 : 100;
+    manager.push({ type: "mgr_buy", fields: { AMOUNT: amount, TOKEN: token, DEX: "pancake" } });
   }
 
   // ── Risk layer ───────────────────────────────────────────────────────────────
-  if (has(lower, "stop loss", "stop-loss", "cut loss")) {
-    const pct = has(lower, "5%", "5 percent") ? 5 : has(lower, "15%", "15 percent") ? 15 : has(lower, "20%", "20 percent") ? 20 : 10;
+  if (has(lower, "stop loss", "stop-loss", "cut loss", "손절")) {
+    const pctMatch = input.match(/(\d+(?:\.\d+)?)\s*%/);
+    const pct = pctMatch ? parseFloat(pctMatch[1]) :
+      isAggressive ? 5 : isConservative ? 15 : isScalping ? 2 : 10;
     risk.push({ type: "risk_set_stop_loss", fields: { PCT: pct } });
   } else {
-    // Always add a default stop loss
-    risk.push({ type: "risk_set_stop_loss", fields: { PCT: 10 } });
+    // Always add a default stop loss; adjust by style
+    const pct = isAggressive ? 5 : isConservative ? 15 : isScalping ? 2 : 10;
+    risk.push({ type: "risk_set_stop_loss", fields: { PCT: pct } });
   }
 
-  if (has(lower, "take profit", "profit target", "tp", "target")) {
-    const pct = has(lower, "30%", "30 percent") ? 30 : has(lower, "50%", "50 percent") ? 50 : 20;
+  if (has(lower, "take profit", "profit target", "tp", "target", "익절")) {
+    const pctMatch = input.match(/(\d+(?:\.\d+)?)\s*%/);
+    const pct = pctMatch ? parseFloat(pctMatch[1]) :
+      isAggressive ? 50 : isConservative ? 15 : isScalping ? 5 : 20;
     risk.push({ type: "risk_set_take_profit", fields: { PCT: pct } });
   } else {
-    // Always add take profit
-    risk.push({ type: "risk_set_take_profit", fields: { PCT: 25 } });
+    // Always add take profit; adjust by style
+    const pct = isAggressive ? 50 : isConservative ? 15 : isScalping ? 5 : 25;
+    risk.push({ type: "risk_set_take_profit", fields: { PCT: pct } });
   }
 
-  if (has(lower, "drawdown", "max loss", "risk limit", "portfolio loss", "rebalance", "autonomous")) {
-    const pct = has(lower, "30%", "30 percent") ? 30 : has(lower, "10%", "10 percent") ? 10 : 20;
+  if (isConservative || has(lower, "drawdown", "max loss", "risk limit", "portfolio loss", "rebalance", "autonomous")) {
+    const pct = isConservative ? 10 : has(lower, "30%", "30 percent") ? 30 : has(lower, "10%", "10 percent") ? 10 : 20;
     risk.push({ type: "risk_max_drawdown", fields: { PCT: pct } });
   }
 
   if (has(lower, "max position", "position limit", "exposure", "cap")) {
-    risk.push({ type: "risk_max_position", fields: { MAX_USDT: 500 } });
-  } else if (has(lower, "rebalance", "autonomous")) {
-    risk.push({ type: "risk_max_position", fields: { MAX_USDT: 1000 } });
+    risk.push({ type: "risk_max_position", fields: { MAX_USDT: isAggressive ? 1000 : 500 } });
+  } else if (isConservative || has(lower, "rebalance", "autonomous")) {
+    risk.push({ type: "risk_max_position", fields: { MAX_USDT: isConservative ? 300 : 1000 } });
   }
 
-  if (has(lower, "daily limit", "daily loss", "loss cap")) {
-    risk.push({ type: "risk_daily_loss_limit", fields: { LIMIT_USDT: 100 } });
+  if (has(lower, "daily limit", "daily loss", "loss cap") || isConservative) {
+    risk.push({ type: "risk_daily_loss_limit", fields: { LIMIT_USDT: isConservative ? 50 : 100 } });
   }
 
   // ── Name generation ──────────────────────────────────────────────────────────
   let name = "Custom Trading Strategy";
   if (has(lower, "autonomous", "ai trading", "fully automated")) {
     name = "Autonomous AI Strategy";
+  } else if (isScalping) {
+    name = "Scalping Strategy";
+  } else if (isSwing) {
+    name = "Swing Trading Strategy";
+  } else if (isAggressive) {
+    name = "Aggressive Momentum Strategy";
+  } else if (isConservative) {
+    name = "Conservative Safe Strategy";
   } else if (has(lower, "dca", "dollar cost", "accumulate")) {
     const token = has(lower, "eth") ? "ETH" : has(lower, "btc") ? "BTC" : "BNB";
     name = `DCA ${token} Strategy`;
@@ -242,59 +275,106 @@ function generateMockStrategy(input: string, previousStrategy?: StrategyGenerati
     name = "Volatility Signal Strategy";
   }
 
-  // Build conversational explanation
+  // ── Build conversational description (Korean if input contains Korean) ───────
+  const isKorean = hasKorean(input);
   const parts: string[] = [];
 
-  if (data.length > 0) {
-    const feeds = data.filter((b) => b.type !== "feed_emit").map((b) => {
-      const labels: Record<string, string> = { feed_nasdaq: "NASDAQ futures", feed_interest_rate: "Fed interest rate", feed_fx_rate: "FX rate", feed_commodity: "commodity prices", feed_fear_greed: "Fear & Greed index", feed_vix: "VIX volatility" };
-      return labels[b.type] ?? b.type;
-    });
-    if (feeds.length > 0) parts.push(`Monitoring ${feeds.join(", ")} as macro data feeds.`);
-  }
-
-  if (alpha.length > 0) {
-    const hasAI = alpha.some((b) => b.type === "alpha_ai_decide");
-    if (hasAI) {
-      parts.push("AI agent will autonomously analyze market conditions and emit trading signals.");
-    } else {
-      const triggers = alpha.filter((b) => b.type.startsWith("alpha_when_")).map((b) => {
-        if (b.type === "alpha_when_momentum") return `${b.fields.PERIOD}-day momentum`;
-        if (b.type === "alpha_when_price") return `${b.fields.TOKEN} price ${b.fields.OPERATOR} ${b.fields.VALUE}`;
-        if (b.type === "alpha_when_volume") return `volume spike (${b.fields.MULTIPLIER}x avg)`;
+  if (isKorean) {
+    if (data.length > 0) {
+      const feeds = data.filter((b) => b.type !== "feed_emit").map((b) => {
+        const labels: Record<string, string> = { feed_nasdaq: "나스닥 선물", feed_interest_rate: "연준 금리", feed_fx_rate: "환율", feed_commodity: "원자재 가격", feed_fear_greed: "공포탐욕 지수", feed_vix: "VIX 변동성" };
+        return labels[b.type] ?? b.type;
+      });
+      if (feeds.length > 0) parts.push(`${feeds.join(", ")} 등 매크로 데이터를 모니터링합니다.`);
+    }
+    if (alpha.length > 0) {
+      const hasAI = alpha.some((b) => b.type === "alpha_ai_decide");
+      if (hasAI) {
+        parts.push("AI 에이전트가 시장 상황을 자율 분석하여 트레이딩 시그널을 생성합니다.");
+      } else {
+        const triggers = alpha.filter((b) => b.type.startsWith("alpha_when_")).map((b) => {
+          if (b.type === "alpha_when_momentum") return `${b.fields.PERIOD}일 모멘텀`;
+          if (b.type === "alpha_when_price") return `${b.fields.TOKEN} 가격 ${b.fields.OPERATOR} ${b.fields.VALUE}`;
+          if (b.type === "alpha_when_volume") return `거래량 급등 (${b.fields.MULTIPLIER}배)`;
+          return b.type;
+        });
+        if (triggers.length > 0) parts.push(`${triggers.join(", ")} 시그널 기반으로 매매 조건을 감지합니다.`);
+      }
+    }
+    if (news.length > 0) {
+      const hasSemantic = news.some((b) => b.type === "news_semantic_filter");
+      if (hasSemantic) parts.push("AI 시맨틱 필터로 뉴스 맥락과 감성을 분석합니다.");
+      else parts.push("뉴스 감성을 모니터링하여 매매 시그널을 생성합니다.");
+    }
+    if (manager.length > 0) {
+      const actions = manager.filter((b) => !b.type.includes("signal") && b.type !== "mgr_repeat").map((b) => {
+        if (b.type === "mgr_buy") return `${b.fields.TOKEN} ${b.fields.AMOUNT} USDT 매수 (${b.fields.DEX === "pancake" ? "PancakeSwap" : "시장가"})`;
+        if (b.type === "mgr_sell") return `${b.fields.TOKEN} ${b.fields.AMOUNT_PCT}% 매도`;
+        if (b.type === "mgr_dca") return `${b.fields.TOKEN} ${b.fields.INTERVAL} DCA ${b.fields.AMOUNT} USDT`;
+        if (b.type === "mgr_rebalance") return `${b.fields.TOKEN} ${b.fields.TARGET_PCT}% 비중 리밸런싱`;
         return b.type;
       });
-      if (triggers.length > 0) parts.push(`Alpha signals based on ${triggers.join(" and ")}.`);
+      if (actions.length > 0) parts.push(`실행: ${actions.join(", ")}.`);
     }
-  }
-
-  if (news.length > 0) {
-    const hasSemantic = news.some((b) => b.type === "news_semantic_filter");
-    if (hasSemantic) parts.push("Using AI semantic filter to analyze news context and sentiment.");
-    else parts.push("Monitoring crypto news sentiment for trading signals.");
-  }
-
-  if (manager.length > 0) {
-    const actions = manager.filter((b) => !b.type.includes("signal") && b.type !== "mgr_repeat").map((b) => {
-      if (b.type === "mgr_buy") return `buy ${b.fields.AMOUNT} USDT of ${b.fields.TOKEN} via ${b.fields.DEX === "pancake" ? "PancakeSwap" : "market order"}`;
-      if (b.type === "mgr_sell") return `sell ${b.fields.AMOUNT_PCT}% of ${b.fields.TOKEN}`;
-      if (b.type === "mgr_dca") return `DCA ${b.fields.AMOUNT} USDT into ${b.fields.TOKEN} ${b.fields.INTERVAL}`;
-      if (b.type === "mgr_rebalance") return `rebalance ${b.fields.TOKEN} to ${b.fields.TARGET_PCT}%`;
-      return b.type;
-    });
-    if (actions.length > 0) parts.push(`Execution: ${actions.join(", ")}.`);
-  }
-
-  if (risk.length > 0) {
-    const guards = risk.map((b) => {
-      if (b.type === "risk_set_stop_loss") return `stop loss at -${b.fields.PCT}%`;
-      if (b.type === "risk_set_take_profit") return `take profit at +${b.fields.PCT}%`;
-      if (b.type === "risk_max_position") return `max position ${b.fields.MAX_USDT} USDT`;
-      if (b.type === "risk_max_drawdown") return `max drawdown ${b.fields.PCT}%`;
-      if (b.type === "risk_daily_loss_limit") return `daily loss cap ${b.fields.LIMIT_USDT} USDT`;
-      return b.type;
-    });
-    parts.push(`Risk guards: ${guards.join(", ")}.`);
+    if (risk.length > 0) {
+      const guards = risk.map((b) => {
+        if (b.type === "risk_set_stop_loss") return `손절 -${b.fields.PCT}%`;
+        if (b.type === "risk_set_take_profit") return `익절 +${b.fields.PCT}%`;
+        if (b.type === "risk_max_position") return `최대 포지션 ${b.fields.MAX_USDT} USDT`;
+        if (b.type === "risk_max_drawdown") return `최대 낙폭 ${b.fields.PCT}%`;
+        if (b.type === "risk_daily_loss_limit") return `일일 손실 한도 ${b.fields.LIMIT_USDT} USDT`;
+        return b.type;
+      });
+      parts.push(`리스크 관리: ${guards.join(", ")}.`);
+    }
+  } else {
+    if (data.length > 0) {
+      const feeds = data.filter((b) => b.type !== "feed_emit").map((b) => {
+        const labels: Record<string, string> = { feed_nasdaq: "NASDAQ futures", feed_interest_rate: "Fed interest rate", feed_fx_rate: "FX rate", feed_commodity: "commodity prices", feed_fear_greed: "Fear & Greed index", feed_vix: "VIX volatility" };
+        return labels[b.type] ?? b.type;
+      });
+      if (feeds.length > 0) parts.push(`Monitoring ${feeds.join(", ")} as macro data feeds.`);
+    }
+    if (alpha.length > 0) {
+      const hasAI = alpha.some((b) => b.type === "alpha_ai_decide");
+      if (hasAI) {
+        parts.push("AI agent will autonomously analyze market conditions and emit trading signals.");
+      } else {
+        const triggers = alpha.filter((b) => b.type.startsWith("alpha_when_")).map((b) => {
+          if (b.type === "alpha_when_momentum") return `${b.fields.PERIOD}-day momentum`;
+          if (b.type === "alpha_when_price") return `${b.fields.TOKEN} price ${b.fields.OPERATOR} ${b.fields.VALUE}`;
+          if (b.type === "alpha_when_volume") return `volume spike (${b.fields.MULTIPLIER}x avg)`;
+          return b.type;
+        });
+        if (triggers.length > 0) parts.push(`Alpha signals based on ${triggers.join(" and ")}.`);
+      }
+    }
+    if (news.length > 0) {
+      const hasSemantic = news.some((b) => b.type === "news_semantic_filter");
+      if (hasSemantic) parts.push("Using AI semantic filter to analyze news context and sentiment.");
+      else parts.push("Monitoring crypto news sentiment for trading signals.");
+    }
+    if (manager.length > 0) {
+      const actions = manager.filter((b) => !b.type.includes("signal") && b.type !== "mgr_repeat").map((b) => {
+        if (b.type === "mgr_buy") return `buy ${b.fields.AMOUNT} USDT of ${b.fields.TOKEN} via ${b.fields.DEX === "pancake" ? "PancakeSwap" : "market order"}`;
+        if (b.type === "mgr_sell") return `sell ${b.fields.AMOUNT_PCT}% of ${b.fields.TOKEN}`;
+        if (b.type === "mgr_dca") return `DCA ${b.fields.AMOUNT} USDT into ${b.fields.TOKEN} ${b.fields.INTERVAL}`;
+        if (b.type === "mgr_rebalance") return `rebalance ${b.fields.TOKEN} to ${b.fields.TARGET_PCT}%`;
+        return b.type;
+      });
+      if (actions.length > 0) parts.push(`Execution: ${actions.join(", ")}.`);
+    }
+    if (risk.length > 0) {
+      const guards = risk.map((b) => {
+        if (b.type === "risk_set_stop_loss") return `stop loss at -${b.fields.PCT}%`;
+        if (b.type === "risk_set_take_profit") return `take profit at +${b.fields.PCT}%`;
+        if (b.type === "risk_max_position") return `max position ${b.fields.MAX_USDT} USDT`;
+        if (b.type === "risk_max_drawdown") return `max drawdown ${b.fields.PCT}%`;
+        if (b.type === "risk_daily_loss_limit") return `daily loss cap ${b.fields.LIMIT_USDT} USDT`;
+        return b.type;
+      });
+      parts.push(`Risk guards: ${guards.join(", ")}.`);
+    }
   }
 
   const description = parts.length > 0
@@ -369,5 +449,5 @@ export async function POST(req: NextRequest) {
   }
 
   // 3. Smart mock fallback
-  return NextResponse.json(generateMockStrategy(input));
+  return NextResponse.json(generateMockStrategy(input, previousStrategy));
 }
