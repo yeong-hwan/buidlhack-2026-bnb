@@ -2,6 +2,9 @@
 *.pptx
 *.pdf
 
+# Claude Code local settings (per-developer)
+.claude/settings.local.json
+
 # Foundry
 contracts/out/
 contracts/cache/
