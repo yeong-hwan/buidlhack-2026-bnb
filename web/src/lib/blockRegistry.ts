@@ -1,11 +1,15 @@
 /**
- * Block registry — defines all available block types, their fields,
- * and which agent they belong to. This replaces the Blockly block definitions.
+ * Block Registry — 20-block minimal language
+ *
+ * Design principles:
+ *  - Every block must be intuitively understandable
+ *  - Enough to express most real-world strategies
+ *  - Structured for easy future extension
  */
 
 export type FieldType =
-  | { kind: "number";   min?: number; max?: number; step?: number }
-  | { kind: "select";   options: Array<{ label: string; value: string }> }
+  | { kind: "number";  min?: number; max?: number; step?: number }
+  | { kind: "select";  options: Array<{ label: string; value: string }> }
   | { kind: "text" };
 
 export type BlockShape = "hat" | "stack" | "cblock" | "cap";
@@ -22,70 +26,55 @@ export interface BlockDefinition {
 }
 
 const TOKENS = [
-  { label: "BNB", value: "BNB" },
-  { label: "ETH", value: "ETH" },
-  { label: "BTC", value: "BTC" },
-  { label: "CAKE", value: "CAKE" },
+  { label: "BNB",  value: "BNB" },
+  { label: "ETH",  value: "ETH" },
+  { label: "BTC",  value: "BTC" },
+];
+
+const OPERATORS = [
+  { label: ">=", value: ">=" },
+  { label: "<=", value: "<=" },
+  { label: ">",  value: ">"  },
+  { label: "<",  value: "<"  },
 ];
 
 export const BLOCK_REGISTRY: BlockDefinition[] = [
-  // ─── Data Feed ────────────────────────────────────────────
+
+  // ─── Data Feed ────────────────────────────────────────────────────────────
+  // Role: Receive external market signals → emit RISK_ON / RISK_OFF / NEUTRAL
+
   {
-    type: "feed_nasdaq", agent: "data", keyword: "feed", label: "NASDAQ futures",
+    type: "feed_price", agent: "data", keyword: "price", label: "price",
     shape: "hat",
     fields: {
-      CONDITION: { kind: "select", options: [{ label: "above 20D MA", value: "above_ma" }, { label: "below 20D MA", value: "below_ma" }, { label: "up >1%", value: "up_1pct" }, { label: "down >1%", value: "down_1pct" }] },
+      TOKEN:    { kind: "select", options: TOKENS },
+      OPERATOR: { kind: "select", options: OPERATORS },
+      VALUE:    { kind: "number", min: 0 },
     },
-    defaults: { CONDITION: "above_ma" },
-    detail: (f) => `${f.CONDITION}`,
+    defaults: { TOKEN: "BNB", OPERATOR: ">=", VALUE: 300 },
+    detail: (f) => `${f.TOKEN} ${f.OPERATOR} $${f.VALUE}`,
   },
   {
-    type: "feed_interest_rate", agent: "data", keyword: "feed", label: "Fed rate",
+    type: "feed_change_pct", agent: "data", keyword: "change", label: "% change",
     shape: "hat",
     fields: {
-      CHANGE: { kind: "select", options: [{ label: "rate cut", value: "cut" }, { label: "rate hike", value: "hike" }, { label: "any change", value: "any" }] },
+      TOKEN:     { kind: "select", options: TOKENS },
+      DIRECTION: { kind: "select", options: [{ label: "up", value: "up" }, { label: "down", value: "down" }] },
+      PCT:       { kind: "number", min: 0.1, max: 100, step: 0.5 },
+      PERIOD:    { kind: "select", options: [{ label: "1h", value: "1h" }, { label: "4h", value: "4h" }, { label: "24h", value: "24h" }, { label: "7d", value: "7d" }] },
     },
-    defaults: { CHANGE: "any" },
-    detail: (f) => `${f.CHANGE}`,
+    defaults: { TOKEN: "BNB", DIRECTION: "up", PCT: 5, PERIOD: "24h" },
+    detail: (f) => `${f.TOKEN} ${f.DIRECTION} ${f.PCT}% / ${f.PERIOD}`,
   },
   {
-    type: "feed_fx_rate", agent: "data", keyword: "feed", label: "FX rate",
+    type: "feed_vix", agent: "data", keyword: "vix", label: "VIX",
     shape: "hat",
     fields: {
-      PAIR: { kind: "select", options: [{ label: "USD/KRW", value: "USD/KRW" }, { label: "EUR/USD", value: "EUR/USD" }, { label: "DXY", value: "DXY" }] },
-      THRESHOLD: { kind: "number", min: 0 },
-    },
-    defaults: { PAIR: "USD/KRW", THRESHOLD: 1300 },
-    detail: (f) => `${f.PAIR}`,
-  },
-  {
-    type: "feed_commodity", agent: "data", keyword: "feed", label: "commodity",
-    shape: "hat",
-    fields: {
-      ASSET: { kind: "select", options: [{ label: "Gold", value: "GOLD" }, { label: "Silver", value: "SILVER" }, { label: "Oil (WTI)", value: "WTI" }] },
-      DIRECTION: { kind: "select", options: [{ label: "trending up", value: "up" }, { label: "trending down", value: "down" }] },
-    },
-    defaults: { ASSET: "GOLD", DIRECTION: "up" },
-    detail: (f) => `${f.ASSET} ${f.DIRECTION}`,
-  },
-  {
-    type: "feed_fear_greed", agent: "data", keyword: "feed", label: "Fear & Greed",
-    shape: "hat",
-    fields: {
-      ZONE: { kind: "select", options: [{ label: "Extreme Fear", value: "extreme_fear" }, { label: "Fear", value: "fear" }, { label: "Greed", value: "greed" }, { label: "Extreme Greed", value: "extreme_greed" }] },
-    },
-    defaults: { ZONE: "extreme_fear" },
-    detail: (f) => `${f.ZONE}`,
-  },
-  {
-    type: "feed_vix", agent: "data", keyword: "feed", label: "VIX",
-    shape: "hat",
-    fields: {
-      OPERATOR: { kind: "select", options: [{ label: ">=", value: ">=" }, { label: "<=", value: "<=" }] },
+      OPERATOR:  { kind: "select", options: [{ label: ">=", value: ">=" }, { label: "<=", value: "<=" }] },
       THRESHOLD: { kind: "number", min: 0 },
     },
     defaults: { OPERATOR: ">=", THRESHOLD: 20 },
-    detail: (f) => `${f.OPERATOR} ${f.THRESHOLD}`,
+    detail: (f) => `VIX ${f.OPERATOR} ${f.THRESHOLD}`,
   },
   {
     type: "feed_emit", agent: "data", keyword: "→ out", label: "data signal",
@@ -94,33 +83,25 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       SIGNAL: { kind: "select", options: [{ label: "RISK ON", value: "RISK_ON" }, { label: "RISK OFF", value: "RISK_OFF" }, { label: "NEUTRAL", value: "NEUTRAL" }] },
     },
     defaults: { SIGNAL: "RISK_OFF" },
-    detail: (f) => `${f.SIGNAL}`,
+    detail: (f) => String(f.SIGNAL),
   },
 
-  // ─── Alpha Agent ──────────────────────────────────────────
-  {
-    type: "alpha_when_momentum", agent: "alpha", keyword: "when", label: "momentum",
-    shape: "hat",
-    fields: {
-      DIRECTION: { kind: "select", options: [{ label: "rises above", value: "above" }, { label: "falls below", value: "below" }] },
-      PERIOD: { kind: "number", min: 1, max: 365 },
-    },
-    defaults: { DIRECTION: "above", PERIOD: 7 },
-    detail: (f) => `${f.DIRECTION} · ${f.PERIOD}d`,
-  },
+  // ─── Alpha Agent ──────────────────────────────────────────────────────────
+  // Role: Detect crypto-specific signals → emit BUY / SELL / HOLD
+
   {
     type: "alpha_when_price", agent: "alpha", keyword: "when", label: "price",
     shape: "hat",
     fields: {
-      TOKEN: { kind: "select", options: TOKENS.slice(0, 3) },
-      OPERATOR: { kind: "select", options: [{ label: ">=", value: ">=" }, { label: "<=", value: "<=" }, { label: ">", value: ">" }, { label: "<", value: "<" }] },
-      VALUE: { kind: "number", min: 0 },
+      TOKEN:    { kind: "select", options: TOKENS },
+      OPERATOR: { kind: "select", options: OPERATORS },
+      VALUE:    { kind: "number", min: 0 },
     },
     defaults: { TOKEN: "BNB", OPERATOR: ">=", VALUE: 300 },
-    detail: (f) => `${f.TOKEN} ${f.OPERATOR} ${f.VALUE}`,
+    detail: (f) => `${f.TOKEN} ${f.OPERATOR} $${f.VALUE}`,
   },
   {
-    type: "alpha_when_volume", agent: "alpha", keyword: "when", label: "volume",
+    type: "alpha_when_volume", agent: "alpha", keyword: "when", label: "volume surge",
     shape: "hat",
     fields: {
       MULTIPLIER: { kind: "number", min: 1, max: 100 },
@@ -129,27 +110,52 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     detail: (f) => `> ${f.MULTIPLIER}× avg`,
   },
   {
-    type: "alpha_ai_decide", agent: "alpha", keyword: "AI", label: "autonomous",
-    shape: "stack",
+    type: "alpha_rsi", agent: "alpha", keyword: "rsi", label: "RSI",
+    shape: "hat",
     fields: {
-      CONTEXT: { kind: "select", options: [{ label: "market conditions", value: "market_conditions" }, { label: "cross-asset signals", value: "cross_asset" }, { label: "all available data", value: "all_data" }] },
-      CONFIDENCE: { kind: "number", min: 1, max: 100 },
+      TOKEN:     { kind: "select", options: TOKENS },
+      CONDITION: { kind: "select", options: [{ label: "oversold", value: "oversold" }, { label: "overbought", value: "overbought" }] },
+      THRESHOLD: { kind: "number", min: 0, max: 100 },
     },
-    defaults: { CONTEXT: "market_conditions", CONFIDENCE: 70 },
-    detail: (f) => `${f.CONTEXT} ≥ ${f.CONFIDENCE}%`,
+    defaults: { TOKEN: "BNB", CONDITION: "oversold", THRESHOLD: 30 },
+    detail: (f) => `${f.TOKEN} RSI ${f.CONDITION} ${f.THRESHOLD}`,
+  },
+  {
+    type: "alpha_ma_cross", agent: "alpha", keyword: "ma", label: "MA cross",
+    shape: "hat",
+    fields: {
+      TOKEN: { kind: "select", options: TOKENS },
+      CROSS: { kind: "select", options: [{ label: "golden cross", value: "golden" }, { label: "death cross", value: "death" }] },
+      SHORT: { kind: "number", min: 1, max: 200 },
+      LONG:  { kind: "number", min: 2, max: 500 },
+    },
+    defaults: { TOKEN: "BNB", CROSS: "golden", SHORT: 7, LONG: 25 },
+    detail: (f) => `${f.TOKEN} MA${f.SHORT}×${f.LONG} ${f.CROSS}`,
   },
   {
     type: "alpha_emit_signal", agent: "alpha", keyword: "→ out", label: "signal",
     shape: "cap",
     fields: {
-      SIGNAL: { kind: "select", options: [{ label: "BUY", value: "BUY" }, { label: "SELL", value: "SELL" }, { label: "HOLD", value: "HOLD" }] },
+      SIGNAL:   { kind: "select", options: [{ label: "BUY", value: "BUY" }, { label: "SELL", value: "SELL" }, { label: "HOLD", value: "HOLD" }] },
       STRENGTH: { kind: "number", min: 1, max: 100 },
     },
     defaults: { SIGNAL: "BUY", STRENGTH: 80 },
     detail: (f) => `${f.SIGNAL} · ${f.STRENGTH}%`,
   },
 
-  // ─── News Agent ───────────────────────────────────────────
+  // ─── News Agent ───────────────────────────────────────────────────────────
+  // Role: Monitor news/social sentiment → emit BULLISH / BEARISH / NEUTRAL
+
+  {
+    type: "news_when_keyword", agent: "news", keyword: "when", label: "keyword",
+    shape: "hat",
+    fields: {
+      KEYWORD: { kind: "text" },
+      SOURCE:  { kind: "select", options: [{ label: "crypto news", value: "news" }, { label: "Twitter/X", value: "twitter" }, { label: "Reddit", value: "reddit" }] },
+    },
+    defaults: { KEYWORD: "BNB upgrade", SOURCE: "news" },
+    detail: (f) => `"${f.KEYWORD}"`,
+  },
   {
     type: "news_when_sentiment", agent: "news", keyword: "when", label: "sentiment",
     shape: "hat",
@@ -157,27 +163,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       SENTIMENT: { kind: "select", options: [{ label: "positive", value: "positive" }, { label: "negative", value: "negative" }, { label: "neutral", value: "neutral" }] },
     },
     defaults: { SENTIMENT: "positive" },
-    detail: (f) => `${f.SENTIMENT}`,
-  },
-  {
-    type: "news_when_keyword", agent: "news", keyword: "when", label: "keyword",
-    shape: "hat",
-    fields: {
-      KEYWORD: { kind: "text" },
-      SOURCE: { kind: "select", options: [{ label: "crypto news", value: "news" }, { label: "Twitter", value: "twitter" }, { label: "Reddit", value: "reddit" }] },
-    },
-    defaults: { KEYWORD: "BNB upgrade", SOURCE: "news" },
-    detail: (f) => `"${f.KEYWORD}"`,
-  },
-  {
-    type: "news_semantic_filter", agent: "news", keyword: "AI", label: "semantic match",
-    shape: "stack",
-    fields: {
-      QUERY: { kind: "text" },
-      THRESHOLD: { kind: "number", min: 0, max: 1, step: 0.05 },
-    },
-    defaults: { QUERY: "bullish market signal", THRESHOLD: 0.7 },
-    detail: (f) => `"${f.QUERY}" ≥ ${f.THRESHOLD}`,
+    detail: (f) => String(f.SENTIMENT),
   },
   {
     type: "news_emit_signal", agent: "news", keyword: "→ out", label: "news signal",
@@ -186,10 +172,12 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       SIGNAL: { kind: "select", options: [{ label: "BULLISH", value: "BULLISH" }, { label: "BEARISH", value: "BEARISH" }, { label: "NEUTRAL", value: "NEUTRAL" }] },
     },
     defaults: { SIGNAL: "BULLISH" },
-    detail: (f) => `${f.SIGNAL}`,
+    detail: (f) => String(f.SIGNAL),
   },
 
-  // ─── Manager ──────────────────────────────────────────────
+  // ─── Manager ──────────────────────────────────────────────────────────────
+  // Role: Receive signals → execute on-chain orders
+
   {
     type: "mgr_on_signal", agent: "manager", keyword: "on", label: "signal",
     shape: "hat",
@@ -197,15 +185,15 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
       SIGNAL: { kind: "select", options: [{ label: "BUY", value: "BUY" }, { label: "SELL", value: "SELL" }, { label: "BULLISH", value: "BULLISH" }, { label: "BEARISH", value: "BEARISH" }] },
     },
     defaults: { SIGNAL: "BUY" },
-    detail: (f) => `${f.SIGNAL}`,
+    detail: (f) => String(f.SIGNAL),
   },
   {
     type: "mgr_buy", agent: "manager", keyword: "buy", label: "token",
     shape: "stack",
     fields: {
       AMOUNT: { kind: "number", min: 1 },
-      TOKEN: { kind: "select", options: TOKENS },
-      DEX: { kind: "select", options: [{ label: "PancakeSwap", value: "pancake" }, { label: "market order", value: "market" }] },
+      TOKEN:  { kind: "select", options: TOKENS },
+      DEX:    { kind: "select", options: [{ label: "PancakeSwap", value: "pancake" }, { label: "market order", value: "market" }] },
     },
     defaults: { AMOUNT: 100, TOKEN: "BNB", DEX: "pancake" },
     detail: (f) => `${f.AMOUNT} USDT → ${f.TOKEN}`,
@@ -215,44 +203,34 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     shape: "stack",
     fields: {
       AMOUNT_PCT: { kind: "number", min: 1, max: 100 },
-      TOKEN: { kind: "select", options: TOKENS },
+      TOKEN:      { kind: "select", options: TOKENS },
     },
     defaults: { AMOUNT_PCT: 100, TOKEN: "BNB" },
     detail: (f) => `${f.AMOUNT_PCT}% of ${f.TOKEN}`,
   },
   {
-    type: "mgr_dca", agent: "manager", keyword: "dca", label: "order",
-    shape: "stack",
-    fields: {
-      AMOUNT: { kind: "number", min: 1 },
-      TOKEN: { kind: "select", options: TOKENS.slice(0, 3) },
-      INTERVAL: { kind: "select", options: [{ label: "weekly", value: "weekly" }, { label: "daily", value: "daily" }, { label: "monthly", value: "monthly" }] },
-    },
-    defaults: { AMOUNT: 100, TOKEN: "BNB", INTERVAL: "weekly" },
-    detail: (f) => `${f.AMOUNT} USDT · ${f.INTERVAL}`,
-  },
-  {
-    type: "mgr_rebalance", agent: "manager", keyword: "rebal", label: "portfolio",
-    shape: "stack",
-    fields: {
-      TOKEN: { kind: "select", options: TOKENS.slice(0, 3) },
-      TARGET_PCT: { kind: "number", min: 1, max: 99 },
-    },
-    defaults: { TOKEN: "BNB", TARGET_PCT: 50 },
-    detail: (f) => `${f.TOKEN} → ${f.TARGET_PCT}%`,
-  },
-  {
     type: "mgr_repeat", agent: "manager", keyword: "repeat", label: "every",
     shape: "cblock",
     fields: {
-      N: { kind: "number", min: 1 },
+      N:    { kind: "number", min: 1 },
       UNIT: { kind: "select", options: [{ label: "hours", value: "hours" }, { label: "days", value: "days" }, { label: "weeks", value: "weeks" }] },
     },
-    defaults: { N: 1, UNIT: "weeks" },
+    defaults: { N: 1, UNIT: "days" },
     detail: (f) => `${f.N} ${f.UNIT}`,
   },
+  {
+    type: "mgr_if_signal", agent: "manager", keyword: "if", label: "signal =",
+    shape: "cblock",
+    fields: {
+      SIGNAL: { kind: "select", options: [{ label: "BUY", value: "BUY" }, { label: "SELL", value: "SELL" }, { label: "HOLD", value: "HOLD" }, { label: "BULLISH", value: "BULLISH" }, { label: "BEARISH", value: "BEARISH" }] },
+    },
+    defaults: { SIGNAL: "BUY" },
+    detail: (f) => `signal = ${f.SIGNAL}`,
+  },
 
-  // ─── Risk Agent ───────────────────────────────────────────
+  // ─── Risk Agent ───────────────────────────────────────────────────────────
+  // Role: Enforce guardrails — always active while strategy is running
+
   {
     type: "risk_set_stop_loss", agent: "risk", keyword: "stop", label: "loss",
     shape: "stack",
@@ -281,22 +259,23 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     detail: (f) => `${f.MAX_USDT} USDT`,
   },
   {
-    type: "risk_max_drawdown", agent: "risk", keyword: "if", label: "drawdown",
-    shape: "stack",
+    type: "risk_if_drawdown", agent: "risk", keyword: "if", label: "drawdown >",
+    shape: "cblock",
     fields: {
       PCT: { kind: "number", min: 1, max: 100 },
     },
     defaults: { PCT: 20 },
-    detail: (f) => `> ${f.PCT}% → pause`,
+    detail: (f) => `drawdown > ${f.PCT}%`,
   },
   {
-    type: "risk_daily_loss_limit", agent: "risk", keyword: "daily", label: "loss limit",
+    type: "risk_cooldown", agent: "risk", keyword: "wait", label: "cooldown",
     shape: "stack",
     fields: {
-      LIMIT_USDT: { kind: "number", min: 1 },
+      N:    { kind: "number", min: 1 },
+      UNIT: { kind: "select", options: [{ label: "hours", value: "hours" }, { label: "days", value: "days" }] },
     },
-    defaults: { LIMIT_USDT: 100 },
-    detail: (f) => `${f.LIMIT_USDT} USDT`,
+    defaults: { N: 24, UNIT: "hours" },
+    detail: (f) => `${f.N} ${f.UNIT} after loss`,
   },
 ];
 

@@ -23,28 +23,25 @@ const AGENTS = [
 ] as const;
 
 const DEFAULT_AGENTS: AgentBlocks = {
-  data: [
-    { type: "feed_fear_greed", fields: { ZONE: "extreme_fear" } },
-    { type: "feed_emit",       fields: { SIGNAL: "RISK_OFF" } },
-  ],
+  data: [],
   alpha: [
-    { type: "alpha_when_momentum", fields: { DIRECTION: "above", PERIOD: 7 } },
-    { type: "alpha_emit_signal",   fields: { SIGNAL: "BUY", STRENGTH: 80 } },
+    { type: "alpha_rsi",         fields: { TOKEN: "BNB", CONDITION: "oversold", THRESHOLD: 30 } },
+    { type: "alpha_ma_cross",    fields: { TOKEN: "BNB", CROSS: "golden", SHORT: 7, LONG: 25 } },
+    { type: "alpha_emit_signal", fields: { SIGNAL: "BUY", STRENGTH: 80 } },
   ],
-  news: [
-    { type: "news_when_sentiment",  fields: { SENTIMENT: "positive" } },
-    { type: "news_semantic_filter", fields: { QUERY: "bullish market signal", THRESHOLD: 0.7 } },
-    { type: "news_emit_signal",     fields: { SIGNAL: "BULLISH" } },
-  ],
+  news: [],
   manager: [
     { type: "mgr_on_signal", fields: { SIGNAL: "BUY" } },
-    { type: "mgr_repeat", fields: { N: 1, UNIT: "weeks" }, children: [
+    { type: "mgr_if_signal", fields: { SIGNAL: "BUY" }, children: [
       { type: "mgr_buy", fields: { AMOUNT: 100, TOKEN: "BNB", DEX: "pancake" } },
     ]},
   ],
   risk: [
     { type: "risk_set_stop_loss",   fields: { PCT: 10 } },
     { type: "risk_set_take_profit", fields: { PCT: 20 } },
+    { type: "risk_if_drawdown",     fields: { PCT: 20 }, children: [
+      { type: "risk_cooldown", fields: { N: 24, UNIT: "hours" } },
+    ]},
   ],
 };
 

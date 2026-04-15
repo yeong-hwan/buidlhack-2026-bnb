@@ -1,15 +1,8 @@
 /**
  * Strategy Generation Protocol
  *
- * This module defines the canonical schema and prompt harness
- * for LLM-based strategy block generation.
- *
- * Protocol:
- *   Input  → natural language strategy description (string)
- *   Output → StrategyGenerationResult (strict JSON, validated below)
- *
- * The LLM must always output valid JSON conforming to StrategyGenerationResult.
- * Any deviation is rejected and falls back to the keyword-based parser.
+ * Input  → natural language strategy description
+ * Output → StrategyGenerationResult (strict JSON)
  */
 
 // ─── Output Schema ────────────────────────────────────────────────────────────
@@ -17,6 +10,7 @@
 export interface StrategyBlock {
   type: BlockType;
   fields: Record<string, string | number>;
+  children?: StrategyBlock[];
 }
 
 export interface StrategyGenerationResult {
@@ -34,42 +28,37 @@ export interface StrategyGenerationResult {
 // ─── Valid Block Types ────────────────────────────────────────────────────────
 
 export const BLOCK_TYPES = {
-  // Data feed: cross-asset market data signals
-  feed_nasdaq:         { CONDITION: "above_ma|below_ma|up_1pct|down_1pct" },
-  feed_interest_rate:  { CHANGE: "cut|hike|any" },
-  feed_fx_rate:        { PAIR: "USD/KRW|EUR/USD|DXY", THRESHOLD: "number" },
-  feed_commodity:      { ASSET: "GOLD|SILVER|WTI", DIRECTION: "up|down" },
-  feed_fear_greed:     { ZONE: "extreme_fear|fear|greed|extreme_greed" },
-  feed_vix:            { OPERATOR: ">=|<=", THRESHOLD: "number" },
-  feed_emit:           { SIGNAL: "RISK_ON|RISK_OFF|NEUTRAL" },
+  // Data Feed — emit RISK_ON / RISK_OFF / NEUTRAL
+  feed_price:       { TOKEN: "BNB|ETH|BTC", OPERATOR: ">=|<=|>|<", VALUE: "number" },
+  feed_change_pct:  { TOKEN: "BNB|ETH|BTC", DIRECTION: "up|down", PCT: "number", PERIOD: "1h|4h|24h|7d" },
+  feed_vix:         { OPERATOR: ">=|<=", THRESHOLD: "number" },
+  feed_emit:        { SIGNAL: "RISK_ON|RISK_OFF|NEUTRAL" },
 
-  // Alpha agent: detects market signals
-  alpha_when_momentum:   { DIRECTION: "above|below",    PERIOD: "number(1-365)" },
-  alpha_when_price:      { TOKEN: "BNB|ETH|BTC",        OPERATOR: ">=|<=|>|<", VALUE: "number" },
-  alpha_when_volume:     { MULTIPLIER: "number(1-100)" },
-  alpha_ai_decide:       { CONTEXT: "market_conditions|cross_asset|all_data", CONFIDENCE: "number(1-100)" },
-  alpha_emit_signal:     { SIGNAL: "BUY|SELL|HOLD",     STRENGTH: "number(1-100)" },
+  // Alpha Agent — emit BUY / SELL / HOLD
+  alpha_when_price:  { TOKEN: "BNB|ETH|BTC", OPERATOR: ">=|<=|>|<", VALUE: "number" },
+  alpha_when_volume: { MULTIPLIER: "number" },
+  alpha_rsi:         { TOKEN: "BNB|ETH|BTC", CONDITION: "oversold|overbought", THRESHOLD: "number" },
+  alpha_ma_cross:    { TOKEN: "BNB|ETH|BTC", CROSS: "golden|death", SHORT: "number", LONG: "number" },
+  alpha_emit_signal: { SIGNAL: "BUY|SELL|HOLD", STRENGTH: "number(1-100)" },
 
-  // News agent: monitors sentiment and keywords
-  news_when_sentiment:   { SENTIMENT: "positive|negative|neutral" },
-  news_when_keyword:     { KEYWORD: "string",           SOURCE: "news|twitter|reddit" },
-  news_semantic_filter:  { QUERY: "string",             THRESHOLD: "number(0-1)" },
-  news_emit_signal:      { SIGNAL: "BULLISH|BEARISH|NEUTRAL" },
+  // News Agent — emit BULLISH / BEARISH / NEUTRAL
+  news_when_keyword:   { KEYWORD: "string", SOURCE: "news|twitter|reddit" },
+  news_when_sentiment: { SENTIMENT: "positive|negative|neutral" },
+  news_emit_signal:    { SIGNAL: "BULLISH|BEARISH|NEUTRAL" },
 
-  // Manager agent: constructs and executes orders
-  mgr_on_signal:         { SIGNAL: "BUY|SELL|BULLISH|BEARISH" },
-  mgr_buy:               { AMOUNT: "number",            TOKEN: "BNB|ETH|BTC|CAKE", DEX: "pancake|market" },
-  mgr_sell:              { AMOUNT_PCT: "number(1-100)", TOKEN: "BNB|ETH|BTC|CAKE" },
-  mgr_dca:               { AMOUNT: "number",            TOKEN: "BNB|ETH|BTC",      INTERVAL: "weekly|daily|monthly" },
-  mgr_rebalance:         { TOKEN: "BNB|ETH|BTC",        TARGET_PCT: "number(1-99)" },
-  mgr_repeat:            { N: "number",                 UNIT: "hours|days|weeks" },
+  // Manager — execute on-chain orders
+  mgr_on_signal: { SIGNAL: "BUY|SELL|BULLISH|BEARISH" },
+  mgr_buy:       { AMOUNT: "number", TOKEN: "BNB|ETH|BTC", DEX: "pancake|market" },
+  mgr_sell:      { AMOUNT_PCT: "number(1-100)", TOKEN: "BNB|ETH|BTC" },
+  mgr_repeat:    { N: "number", UNIT: "hours|days|weeks" },
+  mgr_if_signal: { SIGNAL: "BUY|SELL|HOLD|BULLISH|BEARISH" },
 
-  // Risk agent: enforces guardrails
-  risk_set_stop_loss:    { PCT: "number(0.1-99)" },
-  risk_set_take_profit:  { PCT: "number(0.1-1000)" },
-  risk_max_position:     { MAX_USDT: "number" },
-  risk_max_drawdown:     { PCT: "number(1-100)" },
-  risk_daily_loss_limit: { LIMIT_USDT: "number" },
+  // Risk Agent — always-on guardrails
+  risk_set_stop_loss:   { PCT: "number(0.1-99)" },
+  risk_set_take_profit: { PCT: "number(0.1-1000)" },
+  risk_max_position:    { MAX_USDT: "number" },
+  risk_if_drawdown:     { PCT: "number(1-100)" },
+  risk_cooldown:        { N: "number", UNIT: "hours|days" },
 } as const;
 
 export type BlockType = keyof typeof BLOCK_TYPES;
@@ -78,15 +67,15 @@ export type BlockType = keyof typeof BLOCK_TYPES;
 
 export const SYSTEM_PROMPT = `You are a strategy compiler for an on-chain trading agent platform.
 
-Your job is to convert a natural language strategy description into a structured JSON object that defines blocks for 5 isolated agent layers:
+Convert a natural language strategy description into a JSON object with blocks for 5 agent layers:
 
-- data:    Cross-asset market data feeds (NASDAQ, FX rates, VIX, commodities, Fear & Greed). Emits RISK_ON/RISK_OFF/NEUTRAL signals.
-- alpha:   Detects crypto-specific market signals (price, momentum, volume). Can use AI autonomous decision. Emits BUY/SELL/HOLD signals.
-- news:    Monitors news sentiment and keywords. Supports semantic AI filtering. Emits BULLISH/BEARISH/NEUTRAL signals.
-- manager: Listens to agent signals and constructs actual on-chain orders.
-- risk:    Sets guardrails that apply globally (stop loss, take profit, position limits).
+- data:    Market data triggers (price, % change, VIX). Emits RISK_ON / RISK_OFF / NEUTRAL.
+- alpha:   Crypto signal detection (price, volume, RSI, MA cross). Emits BUY / SELL / HOLD.
+- news:    News/social sentiment (keywords, sentiment). Emits BULLISH / BEARISH / NEUTRAL.
+- manager: Executes on-chain orders based on received signals.
+- risk:    Always-on guardrails (stop loss, take profit, drawdown, cooldown).
 
-VALID BLOCK TYPES AND THEIR FIELDS:
+VALID BLOCK TYPES AND FIELDS:
 ${Object.entries(BLOCK_TYPES)
   .map(([type, fields]) =>
     `  ${type}: { ${Object.entries(fields).map(([k, v]) => `${k}: ${v}`).join(", ")} }`
@@ -94,86 +83,76 @@ ${Object.entries(BLOCK_TYPES)
   .join("\n")}
 
 RULES:
-1. Only use block types listed above. Do not invent new types.
-2. All field values must match the specified type/enum.
-3. Data flow: data→alpha, alpha→manager, news→manager, manager→risk.
-   - data agents MUST end with feed_emit to send signal downstream.
-   - alpha agents MUST end with alpha_emit_signal to send signal to manager.
-   - news agents MUST end with news_emit_signal to send signal to manager.
-   - manager agents SHOULD start with mgr_on_signal to receive signals.
-4. Generate 2–4 blocks per active agent. Build a REALISTIC pipeline, not just 1 block.
-5. risk agent MUST always have 2+ blocks (e.g. stop_loss + take_profit). Never leave risk thin.
-6. manager agent MUST always have 2+ blocks (signal receiver + action).
-7. alpha agent MUST always have 2+ blocks (trigger + emit).
-8. If description mentions news/sentiment, include 2-3 news blocks. Otherwise leave news empty.
-9. If description mentions macro data (NASDAQ, FX, rates, gold, VIX), include 2-3 data blocks.
-10. If description hints at AI/autonomous, use alpha_ai_decide and/or news_semantic_filter.
-11. Respond in the same language as the user input for the "description" field.
-12. Description should explain the strategy flow conversationally (2-3 sentences).
-13. Block ordering within each agent MUST follow logical pipeline order: trigger/condition blocks first (types starting with "when_", "on_", or "if_"), then processing/action blocks in the middle, then emit/output blocks last (types ending with "_emit" or "_emit_signal"). This ensures correct visual flow in the DAG.
-14. MODIFICATION RULE: When the user provides a modification request (e.g., "change stop loss to 5%"), only modify the specified parameter — keep everything else exactly the same.
-15. CURRENT STRATEGY RULE: If a "CURRENT STRATEGY" section is present in the user message, treat it as the base to modify. Copy all agents and blocks from it unchanged, then apply only the changes the user explicitly requested.
+1. Only use block types listed above. Never invent new types.
+2. All field values must match the specified enum/type.
+3. Data flow: data → alpha, alpha → manager, news → manager, manager → risk.
+4. data MUST end with feed_emit. alpha MUST end with alpha_emit_signal. news MUST end with news_emit_signal.
+5. manager MUST start with mgr_on_signal or mgr_if_signal.
+6. risk MUST always have stop_loss + take_profit. Never leave risk empty.
+7. Generate 2–4 blocks per active agent.
+8. Only include news blocks if the description mentions news/sentiment/social.
+9. Only include data blocks if the description mentions macro signals (price change, VIX, volatility).
+10. mgr_if_signal and mgr_repeat are C-BLOCKs — their "children" array holds nested action blocks.
+11. risk_if_drawdown is a C-BLOCK — its "children" array holds protective action blocks.
+12. Respond in the same language as the user for the "description" field.
+13. Block order within each agent: trigger/condition blocks first, actions in the middle, emit last.
+14. MODIFICATION: When user sends a modification request, only change the specified part, keep everything else.
+15. CURRENT STRATEGY: If provided, use it as the base and apply only the requested changes.
 
-EXAMPLE 1 — Macro + News momentum strategy:
-Input: "Buy BNB when NASDAQ rises and news is bullish, stop loss 10%"
+EXAMPLE — RSA oversold + MA golden cross BNB strategy:
+Input: "Buy BNB when RSI is oversold and MA golden cross, stop loss 8%"
 Output:
 {
-  "name": "Macro News BNB Strategy",
-  "description": "NASDAQ 상승 시그널과 뉴스 긍정 시그널이 동시에 발생하면 BNB를 매수합니다. 손절은 -10%로 설정하고, 익절은 +25%로 관리합니다.",
+  "name": "RSI + MA BNB Strategy",
+  "description": "BNB의 RSI 과매도 + 골든크로스가 동시에 감지되면 매수합니다. 손절 8%, 익절 20%로 리스크를 관리합니다.",
   "agents": {
-    "data": [
-      {"type":"feed_nasdaq","fields":{"CONDITION":"above_ma"}},
-      {"type":"feed_emit","fields":{"SIGNAL":"RISK_ON"}}
-    ],
+    "data": [],
     "alpha": [
-      {"type":"alpha_when_momentum","fields":{"DIRECTION":"above","PERIOD":14}},
-      {"type":"alpha_emit_signal","fields":{"SIGNAL":"BUY","STRENGTH":80}}
+      {"type":"alpha_rsi","fields":{"TOKEN":"BNB","CONDITION":"oversold","THRESHOLD":30}},
+      {"type":"alpha_ma_cross","fields":{"TOKEN":"BNB","CROSS":"golden","SHORT":7,"LONG":25}},
+      {"type":"alpha_emit_signal","fields":{"SIGNAL":"BUY","STRENGTH":85}}
     ],
-    "news": [
-      {"type":"news_when_sentiment","fields":{"SENTIMENT":"positive"}},
-      {"type":"news_emit_signal","fields":{"SIGNAL":"BULLISH"}}
-    ],
+    "news": [],
     "manager": [
       {"type":"mgr_on_signal","fields":{"SIGNAL":"BUY"}},
       {"type":"mgr_buy","fields":{"AMOUNT":100,"TOKEN":"BNB","DEX":"pancake"}}
     ],
     "risk": [
-      {"type":"risk_set_stop_loss","fields":{"PCT":10}},
-      {"type":"risk_set_take_profit","fields":{"PCT":25}},
+      {"type":"risk_set_stop_loss","fields":{"PCT":8}},
+      {"type":"risk_set_take_profit","fields":{"PCT":20}},
       {"type":"risk_max_position","fields":{"MAX_USDT":500}}
     ]
   }
 }
 
-EXAMPLE 2 — Autonomous AI rebalance strategy:
-Input: "Let AI decide when to rebalance my BNB/ETH portfolio, keep drawdown under 15%"
+EXAMPLE — Signal-based branching with cooldown:
+Input: "If BUY signal buy BNB, if SELL signal sell, add cooldown 24h after drawdown"
 Output:
 {
-  "name": "AI Portfolio Rebalance",
-  "description": "AI 에이전트가 시장 상황을 분석해 BNB와 ETH 비중을 자율적으로 조정합니다. 최대 낙폭 15% 이내로 리스크를 관리하며 포지션 한도를 설정합니다.",
+  "name": "Signal Branch Strategy",
+  "description": "매수 신호 시 BNB를 매수하고 매도 신호 시 즉시 청산합니다. 낙폭이 15% 초과 시 24시간 쿨다운을 적용합니다.",
   "agents": {
-    "data": [
-      {"type":"feed_vix","fields":{"OPERATOR":">=","THRESHOLD":20}},
-      {"type":"feed_fear_greed","fields":{"ZONE":"fear"}},
-      {"type":"feed_emit","fields":{"SIGNAL":"RISK_OFF"}}
-    ],
+    "data": [],
     "alpha": [
-      {"type":"alpha_ai_decide","fields":{"CONTEXT":"all_data","CONFIDENCE":70}},
-      {"type":"alpha_emit_signal","fields":{"SIGNAL":"HOLD","STRENGTH":65}}
+      {"type":"alpha_when_price","fields":{"TOKEN":"BNB","OPERATOR":">=","VALUE":300}},
+      {"type":"alpha_emit_signal","fields":{"SIGNAL":"BUY","STRENGTH":75}}
     ],
-    "news": [
-      {"type":"news_semantic_filter","fields":{"QUERY":"portfolio rebalance market signal","THRESHOLD":0.7}},
-      {"type":"news_emit_signal","fields":{"SIGNAL":"NEUTRAL"}}
-    ],
+    "news": [],
     "manager": [
       {"type":"mgr_on_signal","fields":{"SIGNAL":"BUY"}},
-      {"type":"mgr_rebalance","fields":{"TOKEN":"BNB","TARGET_PCT":50}},
-      {"type":"mgr_repeat","fields":{"N":7,"UNIT":"days"}}
+      {"type":"mgr_if_signal","fields":{"SIGNAL":"BUY"},"children":[
+        {"type":"mgr_buy","fields":{"AMOUNT":100,"TOKEN":"BNB","DEX":"pancake"}}
+      ]},
+      {"type":"mgr_if_signal","fields":{"SIGNAL":"SELL"},"children":[
+        {"type":"mgr_sell","fields":{"AMOUNT_PCT":100,"TOKEN":"BNB"}}
+      ]}
     ],
     "risk": [
       {"type":"risk_set_stop_loss","fields":{"PCT":8}},
-      {"type":"risk_max_drawdown","fields":{"PCT":15}},
-      {"type":"risk_max_position","fields":{"MAX_USDT":1000}}
+      {"type":"risk_set_take_profit","fields":{"PCT":20}},
+      {"type":"risk_if_drawdown","fields":{"PCT":15},"children":[
+        {"type":"risk_cooldown","fields":{"N":24,"UNIT":"hours"}}
+      ]}
     ]
   }
 }
@@ -183,7 +162,7 @@ OUTPUT FORMAT (strict JSON, no markdown, no explanation):
   "name": "Short strategy name (max 5 words)",
   "description": "2-3 sentence conversational explanation",
   "agents": {
-    "data":    [{"type":"...","fields":{...}}, ...],
+    "data":    [],
     "alpha":   [{"type":"...","fields":{...}}, ...],
     "news":    [],
     "manager": [{"type":"...","fields":{...}}, ...],
@@ -214,11 +193,8 @@ export function validateStrategyResult(raw: unknown): StrategyGenerationResult {
 }
 
 function blockSortOrder(type: string): number {
-  // Triggers first: types containing "when_" or "on_" (e.g. alpha_when_momentum, mgr_on_signal, news_when_sentiment)
-  if (type.includes("when_") || type.includes("on_")) return 0;
-  // Emit/output last: types ending with "_emit" or "_emit_signal" (e.g. feed_emit, alpha_emit_signal)
+  if (type.includes("when_") || type === "mgr_on_signal" || type === "feed_price" || type === "feed_change_pct" || type === "feed_vix" || type === "alpha_rsi" || type === "alpha_ma_cross") return 0;
   if (type.endsWith("_emit") || type.endsWith("_emit_signal")) return 2;
-  // Processing/action blocks in the middle
   return 1;
 }
 
@@ -237,5 +213,5 @@ function validateBlockArray(raw: unknown, agentKey: string): StrategyBlock[] {
       return true;
     })
     .sort((a, b) => blockSortOrder(a.type) - blockSortOrder(b.type))
-    .slice(0, 5); // max 5 blocks per agent
+    .slice(0, 6);
 }
