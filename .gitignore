@@ -13,3 +13,4 @@ contracts/lib/
 contracts/node_modules/
 contracts/.env
 contracts/foundry.lock
+contracts/debug-web/demo-config.js

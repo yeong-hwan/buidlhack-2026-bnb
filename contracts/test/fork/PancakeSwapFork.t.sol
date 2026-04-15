@@ -26,6 +26,9 @@ contract PancakeSwapForkTest is Test {
 
     bool internal skipFork;
 
+    /// @notice fork 환경 준비 단계.
+    ///         BSC_MAINNET_RPC가 있으면 fork를 만들고, 없으면 안전하게 스킵 플래그로만 넘긴다.
+    ///         실제 라우터/토큰 주소도 여기서 고정한다.
     function setUp() public {
         string memory rpc;
         try vm.envString("BSC_MAINNET_RPC") returns (string memory s) {
@@ -62,6 +65,9 @@ contract PancakeSwapForkTest is Test {
         deal(USDT, address(executor), 100 ether);
     }
 
+    /// @notice 실제 BSC 메인넷 PancakeSwap V3 라우터와 연결해
+    ///         USDT -> WBNB 스왑이 실제로 동작하는지 확인한다.
+    ///         fork가 없으면 테스트를 건너뛰어 로컬에서도 실패하지 않게 한다.
     function test_fork_swap_usdtToWbnb() public {
         if (skipFork) {
             emit log("BSC_MAINNET_RPC not set; skipping fork test.");

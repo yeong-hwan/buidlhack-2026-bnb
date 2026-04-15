@@ -13,6 +13,9 @@
     "deploy:local": "forge script script/Deploy.s.sol --rpc-url http://127.0.0.1:8545 --broadcast",
     "deploy:testnet": "forge script script/Deploy.s.sol --rpc-url $BSC_TESTNET_RPC --broadcast",
     "export-abis": "tsx scripts/export-abis.ts",
+    "debug:web": "bash debug-web/start-web.sh",
+    "debug:web:chain": "bash debug-web/run-fresh-chain.sh",
+    "debug:web:init": "bash debug-web/init-contracts.sh",
     "clean": "forge clean"
   },
   "devDependencies": {

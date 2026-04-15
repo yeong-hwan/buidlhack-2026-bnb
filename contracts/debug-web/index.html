@@ -1,0 +1,1636 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BUIDL BNB Contracts Demo</title>
+    <script src="./demo-config.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ethers@6.15.0/dist/ethers.umd.min.js"></script>
+    <style>
+      :root {
+        --bg: #0f1220;
+        --panel: #171c30;
+        --line: #2a3250;
+        --text: #e8ecff;
+        --muted: #98a2c3;
+        --accent: #70a5ff;
+        --ok: #2abf8f;
+        --err: #ff6b6b;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: Inter, Arial, "Apple SD Gothic Neo", sans-serif;
+        background: linear-gradient(120deg, #0f1220, #131a34, #0b1122);
+        color: var(--text);
+      }
+      .wrap {
+        max-width: 980px;
+        margin: 24px auto;
+        padding: 0 16px 40px;
+      }
+      h1, h2 { margin-top: 0; }
+      .grid { display: grid; gap: 12px; }
+      .grid.cols-3 { grid-template-columns: repeat(3, minmax(0,1fr)); }
+      .card {
+        background: rgba(23, 28, 48, 0.85);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 16px;
+      }
+      .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+      label { color: var(--muted); font-size: 13px; display: block; margin: 8px 0 4px; }
+      input, select, button, textarea {
+        width: 100%;
+        margin-top: 4px;
+        padding: 10px;
+        border-radius: 8px;
+        border: 1px solid #3d4a77;
+        background: #0f1530;
+        color: var(--text);
+      }
+      button {
+        cursor: pointer;
+        background: var(--accent);
+        border-color: #5f8de2;
+        color: #111;
+        font-weight: 700;
+      }
+      button.secondary { background: #2a314f; color: #d9e2ff; }
+      button:disabled { opacity: 0.5; cursor: not-allowed; }
+      .status {
+        margin-top: 10px;
+        padding: 8px;
+        border-radius: 8px;
+        background: #111a34;
+        border: 1px dashed #3d4a77;
+        color: #bcd0ff;
+        font-size: 13px;
+        word-break: break-all;
+      }
+      .ok { border-color: #2abf8f; color: #c4ffe2; }
+      .err { border-color: #ff8080; color: #ffd5d5; }
+      .mono { font-family: ui-monospace, Menlo, Monaco, Consolas, monospace; }
+      .log {
+        max-height: 180px;
+        overflow: auto;
+        background: #090d1a;
+        border: 1px solid #32407a;
+        border-radius: 8px;
+        padding: 12px;
+        white-space: pre-wrap;
+        font-size: 12px;
+        color: #c7d4ff;
+      }
+      .small {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .tag {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 12px;
+        background: #19264a;
+        border: 1px solid #364d92;
+        margin-right: 6px;
+      }
+      .flex { display: flex; gap: 8px; }
+      .flex > * { flex: 1; }
+      .btnrow { display: flex; gap: 8px; }
+      .btnrow > button { flex: 1; }
+      .muted { color: var(--muted); }
+      .locked {
+        opacity: 0.8;
+        cursor: not-allowed;
+        border-style: dashed;
+      }
+      .swap-shell {
+        margin-top: 12px;
+        background: linear-gradient(180deg, rgba(14, 19, 36, 0.92), rgba(20, 25, 44, 0.92));
+        border: 1px solid #344275;
+        border-radius: 20px;
+        padding: 14px;
+      }
+      .swap-box {
+        background: rgba(11, 16, 31, 0.9);
+        border: 1px solid #31406f;
+        border-radius: 18px;
+        padding: 14px;
+      }
+      .swap-box + .swap-box { margin-top: 10px; }
+      .swap-box-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+      .swap-box-title {
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .swap-amount-input, .swap-output-hero {
+        width: 100%;
+        background: transparent;
+        border: none;
+        padding: 0;
+        margin: 0;
+        font-size: 34px;
+        line-height: 1.1;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        color: #f4f7ff;
+      }
+      .swap-amount-input:focus {
+        outline: none;
+      }
+      .swap-output-hero {
+        min-height: 38px;
+      }
+      .swap-box-foot {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-top: 12px;
+      }
+      .swap-token-select {
+        width: auto;
+        min-width: 128px;
+        margin-top: 0;
+        font-weight: 700;
+        background: #15203f;
+      }
+      .chiprow {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 10px;
+      }
+      .chip {
+        width: auto;
+        margin-top: 0;
+        padding: 8px 12px;
+        border-radius: 999px;
+        border: 1px solid #3a4e89;
+        background: #182445;
+        color: #dbe5ff;
+        font-weight: 700;
+      }
+      .chip.secondary {
+        background: #11182f;
+      }
+      .swap-divider {
+        display: flex;
+        justify-content: center;
+        margin: 10px 0;
+      }
+      .swap-divider > button {
+        width: auto;
+        margin-top: 0;
+        padding: 9px 14px;
+        border-radius: 999px;
+      }
+      .swap-stats {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 12px;
+      }
+      .swap-stat {
+        background: rgba(11, 16, 31, 0.9);
+        border: 1px solid #31406f;
+        border-radius: 14px;
+        padding: 12px;
+      }
+      .swap-stat-label {
+        color: var(--muted);
+        font-size: 12px;
+        margin-bottom: 4px;
+      }
+      .swap-stat-value {
+        font-family: ui-monospace, Menlo, Monaco, Consolas, monospace;
+        font-size: 14px;
+        color: #edf3ff;
+        word-break: break-word;
+      }
+      .dashboard-card {
+        position: relative;
+        overflow: hidden;
+        border-radius: 20px;
+        border: 1px solid rgba(90, 114, 188, 0.45);
+        background: linear-gradient(180deg, rgba(23, 28, 48, 0.95), rgba(12, 16, 31, 0.96));
+        box-shadow: 0 24px 50px rgba(7, 10, 20, 0.34);
+      }
+      .dashboard-card::before {
+        content: "";
+        position: absolute;
+        inset: -40px auto auto -30px;
+        width: 160px;
+        height: 160px;
+        border-radius: 999px;
+        background: radial-gradient(circle, rgba(112, 165, 255, 0.2), transparent 72%);
+        pointer-events: none;
+      }
+      .dashboard-card::after {
+        content: "";
+        position: absolute;
+        inset: auto -40px -60px auto;
+        width: 180px;
+        height: 180px;
+        border-radius: 999px;
+        background: radial-gradient(circle, rgba(42, 191, 143, 0.16), transparent 74%);
+        pointer-events: none;
+      }
+      .section-kicker {
+        display: inline-flex;
+        align-items: center;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: rgba(18, 26, 48, 0.88);
+        border: 1px solid rgba(91, 118, 202, 0.45);
+        color: #d8e4ff;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .hero-copy {
+        margin: 10px 0 0;
+        max-width: 52ch;
+        color: #dbe4ff;
+        font-size: 14px;
+        line-height: 1.5;
+      }
+      .asset-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 16px;
+      }
+      .asset-tile {
+        position: relative;
+        overflow: hidden;
+        padding: 14px;
+        border-radius: 18px;
+        border: 1px solid rgba(66, 85, 145, 0.55);
+        background: rgba(10, 14, 27, 0.82);
+      }
+      .asset-tile::before {
+        content: "";
+        position: absolute;
+        inset: 0 auto auto 0;
+        width: 100%;
+        height: 3px;
+        background: linear-gradient(90deg, #70a5ff, #2abf8f);
+      }
+      .asset-symbol {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 62px;
+        padding: 7px 12px;
+        border-radius: 999px;
+        background: #16213f;
+        border: 1px solid rgba(89, 118, 205, 0.52);
+        color: #f2f7ff;
+        font-weight: 900;
+      }
+      .asset-balance {
+        margin-top: 14px;
+        font-size: 30px;
+        line-height: 1.05;
+        font-weight: 900;
+        letter-spacing: -0.05em;
+        color: #f6f9ff;
+      }
+      .asset-caption {
+        margin-top: 8px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .mini-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 16px;
+      }
+      .mini-panel {
+        padding: 14px;
+        border-radius: 16px;
+        border: 1px solid rgba(64, 84, 143, 0.5);
+        background: rgba(10, 14, 27, 0.84);
+      }
+      .mini-label {
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .mini-value {
+        margin-top: 8px;
+        color: #f4f7ff;
+        font-size: 16px;
+        font-family: ui-monospace, Menlo, Monaco, Consolas, monospace;
+        word-break: break-word;
+      }
+      .action-surface {
+        margin-top: 16px;
+        padding: 16px;
+        border-radius: 18px;
+        border: 1px solid rgba(67, 89, 152, 0.5);
+        background: linear-gradient(180deg, rgba(11, 16, 29, 0.92), rgba(9, 12, 24, 0.94));
+      }
+      .action-title {
+        margin: 0 0 6px;
+        color: #eef4ff;
+        font-size: 15px;
+        font-weight: 800;
+      }
+      .action-note {
+        margin: 0 0 12px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .wrap-panel {
+        margin-top: 16px;
+        padding: 18px;
+        border-radius: 18px;
+        border: 1px solid rgba(74, 98, 169, 0.52);
+        background: linear-gradient(135deg, rgba(16, 24, 46, 0.96), rgba(10, 15, 28, 0.94));
+      }
+      .wrap-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .wrap-title {
+        margin: 0;
+        font-size: 26px;
+        letter-spacing: -0.04em;
+      }
+      .wrap-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: rgba(22, 33, 63, 0.9);
+        border: 1px solid rgba(89, 118, 205, 0.5);
+        color: #eef4ff;
+        font-size: 12px;
+        font-weight: 800;
+      }
+      .wrap-value {
+        width: 100%;
+        margin-top: 18px;
+        padding: 0;
+        border: none;
+        background: transparent;
+        font-size: 42px;
+        line-height: 1;
+        font-weight: 900;
+        letter-spacing: -0.06em;
+        color: #f8fbff;
+      }
+      .wrap-value:focus {
+        outline: none;
+      }
+      .metric-board {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 16px;
+      }
+      .metric-card {
+        padding: 14px;
+        border-radius: 18px;
+        border: 1px solid rgba(66, 85, 145, 0.55);
+        background: rgba(10, 14, 27, 0.84);
+      }
+      .metric-card.wide {
+        grid-column: span 3;
+      }
+      .metric-title {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .metric-value {
+        margin-top: 10px;
+        font-size: 24px;
+        line-height: 1.1;
+        font-weight: 900;
+        letter-spacing: -0.04em;
+        color: #f6f9ff;
+        word-break: break-word;
+      }
+      .metric-value.mono {
+        font-size: 15px;
+        font-family: ui-monospace, Menlo, Monaco, Consolas, monospace;
+      }
+      @media (max-width: 720px) {
+        .swap-stats {
+          grid-template-columns: 1fr;
+        }
+        .swap-box-foot {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+        .swap-token-select {
+          width: 100%;
+        }
+        .asset-grid, .metric-board, .mini-grid {
+          grid-template-columns: 1fr;
+        }
+        .metric-card.wide {
+          grid-column: span 1;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>BSC 로컬 Demo Web (MetaMask + Contracts)</h1>
+      <p class="small">BSC Fork 없이 로컬 Anvil에 mock 토큰/라우터를 배포해 실행하는 데모입니다. 복잡한 트레이딩 로직 없이 컨트랙트 기본 동작을 확인할 수 있습니다.</p>
+
+      <div class="card" id="walletCard">
+        <div class="row">
+          <button id="connectBtn">MetaMask 지갑 연결</button>
+          <button id="disconnectBtn" class="secondary">초기화</button>
+        </div>
+        <div id="walletStatus" class="status">아직 연결 안됨</div>
+        <div class="row" style="margin-top: 12px;">
+          <div class="flex">
+            <div style="flex:1"><span class="tag">Account</span><div id="account" class="mono small">-</div></div>
+            <div style="flex:1"><span class="tag">ChainId</span><div id="chain" class="mono small">-</div></div>
+            <div style="flex:1"><span class="tag">네트워크</span><div id="network" class="mono small">-</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid" style="margin-top: 12px; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <div class="card dashboard-card">
+          <div class="section-kicker">Portfolio</div>
+          <h2 style="margin-top: 14px; font-size: 30px; letter-spacing: -0.04em;">토큰 보유량</h2>
+          <p class="hero-copy">지갑과 Executor 안에 들어있는 자산 흐름을 한눈에 보는 패널입니다. 데모여도 숫자가 살아 움직이는 느낌이 나도록 크게 정리했습니다.</p>
+          <div class="asset-grid">
+            <div class="asset-tile">
+              <div class="asset-symbol">BNB</div>
+              <div id="walletNativeBalance" class="asset-balance">-</div>
+              <div class="asset-caption">내 지갑 네이티브 잔고</div>
+            </div>
+            <div class="asset-tile">
+              <div class="asset-symbol">WBNB</div>
+              <div id="walletWbnbBalance" class="asset-balance">-</div>
+              <div class="asset-caption">내 지갑 래핑 토큰</div>
+            </div>
+            <div class="asset-tile">
+              <div class="asset-symbol">USDT</div>
+              <div id="walletUsdtBalance" class="asset-balance">-</div>
+              <div class="asset-caption">내 지갑 스테이블코인</div>
+            </div>
+          </div>
+          <div class="mini-grid">
+            <div class="mini-panel">
+              <div class="mini-label">Executor WBNB</div>
+              <div id="executorWbnbBalance" class="mini-value">-</div>
+            </div>
+            <div class="mini-panel">
+              <div class="mini-label">Executor USDT</div>
+              <div id="executorUsdtBalance" class="mini-value">-</div>
+            </div>
+          </div>
+          <div class="action-surface">
+            <h3 class="action-title">USDT 빠른 민팅</h3>
+            <p class="action-note">mock USDT는 누구나 민팅 가능합니다. 스왑 테스트 전에 지갑 잔고를 즉시 채워 넣는 용도입니다.</p>
+            <label style="margin-top: 0;">민팅 수량 (USDT 단위)</label>
+            <input id="mintUsdtAmount" placeholder="1000" />
+            <div class="btnrow">
+              <button id="mintUsdtBtn">내 지갑으로 USDT mint</button>
+              <button id="refreshBalancesBtn" class="secondary">보유량 새로고침</button>
+            </div>
+          </div>
+          <div id="mintUsdtStatus" class="status">-</div>
+        </div>
+
+        <div class="card dashboard-card">
+          <div class="section-kicker">Wrap Station</div>
+          <div class="wrap-panel">
+            <div class="wrap-header">
+              <div>
+                <h2 class="wrap-title">WBNB 입출금</h2>
+                <div class="small" style="margin-top: 6px;">BNB를 WBNB로 감싸거나 다시 BNB로 되돌리는 패널입니다.</div>
+              </div>
+              <div class="wrap-badge">WBNB Demo Flow</div>
+            </div>
+            <label style="margin-top: 18px;">수량 (BNB / WBNB 단위)</label>
+            <input id="wbnbAmount" class="wrap-value" placeholder="0.0" />
+            <div class="chiprow">
+              <button id="wbnbPreset01" class="chip secondary">0.1</button>
+              <button id="wbnbPreset1" class="chip secondary">1</button>
+              <button id="wbnbPreset5" class="chip secondary">5</button>
+            </div>
+            <div class="btnrow" style="margin-top: 16px;">
+              <button id="wbnbDepositBtn">BNB -> WBNB deposit</button>
+              <button id="wbnbWithdrawBtn" class="secondary">WBNB -> BNB withdraw</button>
+            </div>
+          </div>
+          <div id="wbnbStatus" class="status">-</div>
+        </div>
+      </div>
+
+      <div class="grid" style="margin-top: 12px; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <div class="card">
+          <h2>공통 설정</h2>
+          <label>TradeReceiptRegistry 주소</label>
+          <input id="registryAddress" placeholder="0x..." />
+          <label>PerUserExecutor 주소</label>
+          <input id="executorAddress" placeholder="0x..." />
+          <label>Swap Router 주소</label>
+          <input id="swapRouterAddress" placeholder="0x..." />
+          <label>예시 Strategy ID (hex)</label>
+          <input id="strategyId" placeholder="0x..." />
+          <div class="btnrow" style="margin-top: 8px;">
+            <button id="loadBtn" class="secondary">컨트랙트 연결</button>
+            <button id="refreshBtn">상태 조회</button>
+          </div>
+          <div id="initStatus" class="status">주소 입력 후 로드하세요.</div>
+        </div>
+
+        <div class="card dashboard-card">
+          <div class="section-kicker">Executor</div>
+          <h2 style="margin-top: 14px; font-size: 30px; letter-spacing: -0.04em;">PerUserExecutor 상태</h2>
+          <p class="hero-copy">owner, operator, strategy, epoch 사용량을 운영자 대시보드처럼 보여줍니다. 초보자도 어떤 값이 핵심인지 바로 보이게 정리했습니다.</p>
+          <div class="metric-board">
+            <div class="metric-card">
+              <div class="metric-title">Epoch Spend Cap</div>
+              <div id="epochCap" class="metric-value">-</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-title">Spent This Epoch</div>
+              <div id="spentEpoch" class="metric-value">-</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-title">Current Epoch</div>
+              <div id="currentEpoch" class="metric-value">-</div>
+            </div>
+            <div class="metric-card wide">
+              <div class="metric-title">Owner</div>
+              <div id="ownerAddr" class="metric-value mono">-</div>
+            </div>
+            <div class="metric-card wide">
+              <div class="metric-title">Operator</div>
+              <div id="operatorAddr" class="metric-value mono">-</div>
+            </div>
+            <div class="metric-card wide">
+              <div class="metric-title">Strategy ID</div>
+              <div id="strategyView" class="metric-value mono">-</div>
+            </div>
+          </div>
+          <div style="margin-top: 14px">
+            <button id="refreshSimple">상세 조회</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid" style="margin-top: 12px; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <div class="card">
+          <h2>Owner용 액션</h2>
+          <label>operator 주소</label>
+          <input id="operatorInput" placeholder="0x..." />
+          <div class="btnrow">
+            <button id="setOperatorBtn" class="secondary">setOperator</button>
+            <button id="revokeOperatorBtn" class="secondary">revokeOperator</button>
+          </div>
+
+          <label>Router 주소 + 허용(true/false)</label>
+          <div class="flex">
+            <input id="routerAddr" placeholder="0x..." />
+            <select id="routerAllowed">
+              <option value="true">true</option>
+              <option value="false">false</option>
+            </select>
+          </div>
+          <button id="setRouterBtn" class="secondary">setAllowedRouter</button>
+
+          <label>토큰 주소 + 허용(true/false)</label>
+          <div class="flex">
+            <select id="tokenAddr">
+              <option value="WBNB">WBNB</option>
+              <option value="USDT">USDT</option>
+            </select>
+            <select id="tokenAllowed">
+              <option value="true">true</option>
+              <option value="false">false</option>
+            </select>
+          </div>
+          <button id="setTokenBtn" class="secondary">setAllowedToken</button>
+
+          <label>WBNB + USDT 한 번에 허용/해제</label>
+          <div class="btnrow">
+            <button id="batchAllowBtn">둘 다 true</button>
+            <button id="batchDenyBtn">둘 다 false</button>
+          </div>
+
+          <label>epochSpendCap (토큰 단위)</label>
+          <input id="capInput" type="number" min="0" step="any" placeholder="1000" />
+          <button id="setCapBtn" class="secondary">setEpochSpendCap</button>
+
+          <label>withdraw</label>
+          <label>token</label>
+          <select id="withdrawToken">
+            <option value="WBNB">WBNB</option>
+            <option value="USDT">USDT</option>
+          </select>
+          <label>to</label><input id="withdrawTo" placeholder="0x..." />
+          <label>amount (토큰 단위)</label><input id="withdrawAmount" placeholder="1.0" />
+          <button id="withdrawBtn" class="secondary">withdraw</button>
+        </div>
+
+        <div class="card">
+          <h2>직접 스왑</h2>
+          <div class="small">Uniswap 홈처럼 토큰만 고르고 금액만 넣으면 바로 스왑됩니다. Router 주소는 demo-config 기준으로 고정입니다.</div>
+          <label>Demo Router (고정)</label><input id="directSwapRouter" placeholder="0x..." />
+          <div class="swap-shell">
+            <div class="swap-box">
+              <div class="swap-box-head">
+                <div class="swap-box-title">보내는 토큰</div>
+                <button id="directSwapMaxBtn" class="chip secondary">Max</button>
+              </div>
+              <input id="directSwapAmountIn" class="swap-amount-input" placeholder="0.0" />
+              <div class="swap-box-foot">
+                <select id="directSwapTokenIn" class="swap-token-select">
+                  <option value="WBNB">WBNB</option>
+                  <option value="USDT">USDT</option>
+                </select>
+                <div class="small">내 잔고: <span id="directSwapTokenInBalance" class="mono">-</span></div>
+              </div>
+              <div class="chiprow">
+                <button id="directSwapPreset01" class="chip secondary">0.1</button>
+                <button id="directSwapPreset1" class="chip secondary">1</button>
+                <button id="directSwapPreset10" class="chip secondary">10</button>
+              </div>
+            </div>
+
+            <div class="swap-divider">
+              <button id="directSwapFlipBtn" class="secondary">토큰 뒤집기</button>
+            </div>
+
+            <div class="swap-box">
+              <div class="swap-box-head">
+                <div class="swap-box-title">받는 토큰</div>
+                <div class="small">자동 계산</div>
+              </div>
+              <div id="directSwapExpectedOutHero" class="swap-output-hero">-</div>
+              <div class="swap-box-foot">
+                <select id="directSwapTokenOut" class="swap-token-select">
+                  <option value="USDT">USDT</option>
+                  <option value="WBNB">WBNB</option>
+                </select>
+                <div class="small">내 잔고: <span id="directSwapTokenOutBalance" class="mono">-</span></div>
+              </div>
+            </div>
+
+            <div class="swap-stats">
+              <div class="swap-stat">
+                <div class="swap-stat-label">예상 수령량</div>
+                <div id="directSwapExpectedOut" class="swap-stat-value">-</div>
+              </div>
+              <div class="swap-stat">
+                <div class="swap-stat-label">자동 최소 수령량</div>
+                <div id="directSwapMinOut" class="swap-stat-value">-</div>
+              </div>
+              <div class="swap-stat">
+                <div class="swap-stat-label">현재 pair rate</div>
+                <div id="directSwapPairRate" class="swap-stat-value">-</div>
+              </div>
+              <div class="swap-stat">
+                <div class="swap-stat-label">현재 경로</div>
+                <div id="directSwapPoolHint" class="swap-stat-value">-</div>
+              </div>
+              <div class="swap-stat">
+                <div class="swap-stat-label">Router WBNB</div>
+                <div id="directSwapRouterWbnbBalance" class="swap-stat-value">-</div>
+              </div>
+              <div class="swap-stat">
+                <div class="swap-stat-label">Router USDT</div>
+                <div id="directSwapRouterUsdtBalance" class="swap-stat-value">-</div>
+              </div>
+            </div>
+          </div>
+          <div class="btnrow" style="margin-top: 12px;">
+            <button id="directSwapRefreshBtn" class="secondary">상태 새로고침</button>
+            <button id="directSwapBtn">지금 스왑하기</button>
+          </div>
+          <div id="directSwapResult" class="status">-</div>
+        </div>
+
+        <div class="card">
+          <h2>Executor 경유 스왑</h2>
+          <div class="small">복잡한 라우터 파라미터는 숨기고, 현재 선택한 페어 기준으로 자동 계산합니다.</div>
+          <label>Router (address)</label><input id="swapRouter" placeholder="0x..." />
+          <label>tokenIn</label>
+          <select id="swapTokenIn">
+            <option value="WBNB">WBNB</option>
+            <option value="USDT">USDT</option>
+          </select>
+          <label>tokenOut</label>
+          <select id="swapTokenOut">
+            <option value="USDT">USDT</option>
+            <option value="WBNB">WBNB</option>
+          </select>
+          <div class="flex">
+            <input id="swapAmountIn" placeholder="amountIn (토큰 단위, 예: 1.0)" />
+          </div>
+          <div class="small"><span class="muted">자동 최소 수령량:</span> <span id="executorSwapMinOut" class="mono">-</span></div>
+          <div class="small"><span class="muted">예상 수령량:</span> <span id="executorSwapExpectedOut" class="mono">-</span></div>
+          <button id="execSwapBtn">executeSwap</button>
+
+          <div style="margin-top: 10px" class="small muted">최근 결과</div>
+          <div id="swapResult" class="status">-</div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top: 12px;">
+        <h2>Registry 조회</h2>
+        <div class="btnrow">
+          <button id="receiptCountBtn" class="secondary">receiptCount</button>
+          <button id="receiptsBtn" class="secondary">receiptsOf</button>
+          <button id="recordBtn">recordTrade(테스트)</button>
+        </div>
+        <div class="status" id="registryStatus">-</div>
+        <div class="log" id="receiptLog"></div>
+      </div>
+
+      <div class="card" style="margin-top: 12px;">
+        <h2>트랜잭션 로그</h2>
+        <div class="log" id="log"></div>
+      </div>
+    </div>
+
+    <script>
+      const { ethers } = window;
+
+      const ANVIL_CHAIN_ID = 31337;
+      const ANVIL_RPC_URL = 'http://127.0.0.1:8545';
+      const registryABI = [
+        "error NotAdmin()",
+        "error NotAuthorized()",
+        "function setAuthorizedExecutor(address executor, bool authorized)",
+        "function recordTrade(bytes32 strategyId, address user, address tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut) returns (bytes32,uint256)",
+        "function receiptsOf(bytes32 strategyId) view returns (tuple(bytes32 strategyId,address user,address tokenIn,address tokenOut,uint256 amountIn,uint256 amountOut,uint64 timestamp)[])",
+        "function receiptCount(bytes32 strategyId) view returns (uint256)",
+        "function authorizedExecutor(address) view returns (bool)"
+      ];
+
+      const perUserExecutorABI = [
+        "error NotOwner()",
+        "error NotOperator()",
+        "error TokenNotAllowed()",
+        "error RouterNotAllowed()",
+        "error EpochCapExceeded()",
+        "error ZeroAddress()",
+        "constructor(address owner,address operator,bytes32 strategyId,address registry,uint256 epochSpendCap)",
+        "function owner() view returns (address)",
+        "function strategyId() view returns (bytes32)",
+        "function registry() view returns (address)",
+        "function operator() view returns (address)",
+        "function allowedToken(address) view returns (bool)",
+        "function allowedRouter(address) view returns (bool)",
+        "function epochSpendCap() view returns (uint256)",
+        "function currentEpoch() view returns (uint256)",
+        "function spentThisEpoch() view returns (uint256)",
+        "function setOperator(address)",
+        "function revokeOperator()",
+        "function setAllowedToken(address,bool)",
+        "function setAllowedTokensBatch(address[],bool[])",
+        "function setAllowedRouter(address,bool)",
+        "function setEpochSpendCap(uint256)",
+        "function withdraw(address,address,uint256)",
+        "function executeSwap((address router,address tokenIn,address tokenOut,uint24 fee,uint256 amountIn,uint256 amountOutMinimum,uint160 sqrtPriceLimitX96,uint256 deadline) req) returns (uint256 amountOut)"
+      ];
+
+      const mockRouterABI = [
+        "function setPair(address tokenIn,address tokenOut,uint256 amountOutPerAmountIn)",
+        "function pairRate(address tokenIn,address tokenOut) view returns (uint256)",
+        "function removePair(address tokenIn,address tokenOut)",
+        "function exactInputSingle((address tokenIn,address tokenOut,uint24 fee,address recipient,uint256 deadline,uint256 amountIn,uint256 amountOutMinimum,uint160 sqrtPriceLimitX96) params) payable returns (uint256 amountOut)"
+      ];
+      const erc20ABI = [
+        "function balanceOf(address owner) view returns (uint256)",
+        "function approve(address spender, uint256 amount) returns (bool)",
+        "function mint(address to, uint256 amount)"
+      ];
+      const mockWbnbABI = [
+        "function deposit() payable",
+        "function withdraw(uint256 amount)",
+        "function balanceOf(address owner) view returns (uint256)"
+      ];
+
+      let provider;
+      let signer;
+      let registry;
+      let executor;
+      let mockRouter;
+      let activeEip1193Provider;
+      const demoConfig = window.DEMO_CONFIG || null;
+
+      const $ = (id) => document.getElementById(id);
+      const logArea = $('log');
+      const receiptLog = $('receiptLog');
+
+      function log(msg, cls = '') {
+        const time = new Date().toLocaleTimeString();
+        const line = document.createElement('div');
+        line.textContent = `[${time}] ${msg}`;
+        if (cls) line.className = cls;
+        logArea.appendChild(line);
+        logArea.scrollTop = logArea.scrollHeight;
+      }
+
+      function setStatus(el, msg, ok = true) {
+        el.textContent = msg;
+        el.className = 'status ' + (ok ? 'ok' : 'err');
+      }
+
+      function validateAddress(addr) {
+        try { return ethers.isAddress(addr); } catch { return false; }
+      }
+
+      function getTokenAddress(symbol) {
+        if (!demoConfig) return '';
+        if (symbol === 'WBNB') return demoConfig.mockWbnb || '';
+        if (symbol === 'USDT') return demoConfig.mockUsdt || '';
+        return '';
+      }
+
+      function getSelectedTokenAddress(id) {
+        return getTokenAddress($(id).value);
+      }
+
+      function setReadOnlyField(id, shouldLock = true) {
+        const el = $(id);
+        if (!el) return;
+        el.readOnly = shouldLock;
+        el.classList.toggle('locked', shouldLock);
+      }
+
+      function formatTokenAmount(value) {
+        try {
+          return Number(ethers.formatUnits(value, 18)).toLocaleString('ko-KR', { maximumFractionDigits: 6 });
+        } catch {
+          return '-';
+        }
+      }
+
+      function parseTokenInput(value) {
+        try {
+          if (!value || String(value).trim() === '') return 0n;
+          return ethers.parseUnits(String(value).trim(), 18);
+        } catch {
+          return 0n;
+        }
+      }
+
+      function normalizeTokenSelection(inId, outId) {
+        if ($(inId).value === $(outId).value) {
+          $(outId).value = $(inId).value === 'WBNB' ? 'USDT' : 'WBNB';
+        }
+      }
+
+      function applySlippageBps(amount, bps = 100n) {
+        return amount * (10_000n - bps) / 10_000n;
+      }
+
+      async function quoteSwap(tokenIn, tokenOut, amountIn, routerAddress) {
+        if (!provider || !validateAddress(routerAddress) || !validateAddress(tokenIn) || !validateAddress(tokenOut) || amountIn <= 0n) {
+          return { pairRate: 0n, expectedOut: 0n, minOut: 0n };
+        }
+
+        const router = new ethers.Contract(routerAddress, mockRouterABI, provider);
+        const pairRate = await router.pairRate(tokenIn, tokenOut);
+        const expectedOut = amountIn * pairRate / (10n ** 18n);
+        const minOut = applySlippageBps(expectedOut, 100n);
+        return { pairRate, expectedOut, minOut };
+      }
+
+      function applyDemoConfig() {
+        if (!demoConfig) return;
+
+        if (validateAddress(demoConfig.registry)) {
+          $('registryAddress').value = demoConfig.registry;
+          setReadOnlyField('registryAddress');
+        }
+        if (validateAddress(demoConfig.executor)) {
+          $('executorAddress').value = demoConfig.executor;
+          setReadOnlyField('executorAddress');
+        }
+        if (validateAddress(demoConfig.swapRouter)) {
+          $('swapRouterAddress').value = demoConfig.swapRouter;
+          $('directSwapRouter').value = demoConfig.swapRouter;
+          $('swapRouter').value = demoConfig.swapRouter;
+          $('routerAddr').value = demoConfig.swapRouter;
+          setReadOnlyField('swapRouterAddress');
+          setReadOnlyField('directSwapRouter');
+          setReadOnlyField('swapRouter');
+          setReadOnlyField('routerAddr');
+        }
+        if (demoConfig.strategyId) {
+          $('strategyId').value = demoConfig.strategyId;
+          setReadOnlyField('strategyId');
+        }
+        $('tokenAddr').value = 'WBNB';
+        $('withdrawToken').value = 'WBNB';
+        $('directSwapTokenIn').value = 'WBNB';
+        $('directSwapTokenOut').value = 'USDT';
+        $('swapTokenIn').value = 'WBNB';
+        $('swapTokenOut').value = 'USDT';
+        normalizeTokenSelection('directSwapTokenIn', 'directSwapTokenOut');
+        normalizeTokenSelection('swapTokenIn', 'swapTokenOut');
+        if (demoConfig.sampleOperator && validateAddress(demoConfig.sampleOperator)) {
+          $('operatorInput').value = demoConfig.sampleOperator;
+        }
+        log('demo-config.js loaded. common addresses were prefilled.');
+        setStatus($('initStatus'), 'demo-config.js 기준으로 기본 주소를 채웠습니다.', true);
+        refreshDirectSwapPoolState();
+      }
+
+      async function ensureAnvilChain() {
+        if (!activeEip1193Provider) return false;
+
+        const chainIdHex = '0x' + ANVIL_CHAIN_ID.toString(16);
+        try {
+          await activeEip1193Provider.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: chainIdHex }]
+          });
+          return true;
+        } catch (e) {
+          // 4902: Unrecognized chain
+          if (e && e.code === 4902) {
+            try {
+              await activeEip1193Provider.request({
+                method: 'wallet_addEthereumChain',
+                params: [{
+                  chainId: chainIdHex,
+                  chainName: 'Anvil Local',
+                  rpcUrls: [ANVIL_RPC_URL],
+                  nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 }
+                }]
+              });
+              return true;
+            } catch (err) {
+              setStatus($('walletStatus'), 'MetaMask 네트워크 추가 실패: ' + (err?.message || err), false);
+              return false;
+            }
+          }
+
+          if (e && e.code === 4001) {
+            setStatus($('walletStatus'), 'MetaMask 네트워크 전환이 거절되었습니다. 수동으로 31337으로 변경해 주세요.', false);
+            return false;
+          }
+          return false;
+        }
+      }
+
+      function resolveEthereumProvider() {
+        if (!window.ethereum) return null;
+
+        // Modern wallets expose multiple providers at `ethereum.providers` (EIP-6963 style).
+        // Pick MetaMask first when multiple wallets are installed.
+        const candidates = window.ethereum.providers || [window.ethereum];
+        if (Array.isArray(candidates) && candidates.length > 0) {
+          const mm = candidates.find((p) => p && p.isMetaMask);
+          return mm || candidates[0];
+        }
+
+        return window.ethereum;
+      }
+
+      async function ensureChain() {
+        const net = await provider.getNetwork();
+        $('chain').textContent = String(net.chainId);
+        const isAnvil = Number(net.chainId) === ANVIL_CHAIN_ID;
+        $('network').textContent = isAnvil ? 'Local Anvil (31337)' : net.name || 'Unknown';
+        if (!isAnvil) {
+          setStatus($('walletStatus'), `현재 체인이 Anvil(31337)이 아닙니다. MetaMask 네트워크를 확인하세요 (${net.chainId})`, false);
+        }
+        return isAnvil;
+      }
+
+      async function connectWallet() {
+        const extProvider = resolveEthereumProvider();
+        if (!extProvider) {
+          alert('지갑 확장 기능이 없습니다. MetaMask(또는 지갑 확장) 설치/활성화를 확인하세요.');
+          return;
+        }
+        try {
+          const providerName = extProvider.isMetaMask ? 'MetaMask' : '브라우저 지갑';
+          const accounts = await extProvider.request({ method: 'eth_requestAccounts' });
+          if (!accounts || accounts.length === 0) {
+            setStatus(
+              $('walletStatus'),
+              `${providerName}에 연결된 계정이 없습니다. MetaMask를 잠금 해제하고 계정 하나를 임포트/추가한 뒤 다시 연결해 주세요.`,
+              false
+            );
+            return;
+          }
+
+          activeEip1193Provider = extProvider;
+          provider = new ethers.BrowserProvider(activeEip1193Provider);
+          signer = await provider.getSigner();
+          const address = await signer.getAddress();
+          $('account').textContent = address;
+
+          const isAnvilBefore = await ensureChain();
+          if (!isAnvilBefore) {
+            const switched = await ensureAnvilChain();
+            if (switched) {
+              await ensureChain();
+            } else {
+              return;
+            }
+          }
+          const isAnvil = await ensureChain();
+          setStatus($('walletStatus'), `${providerName} 연결됨: ${address} (${isAnvil ? 'Anvil OK' : '체인 확인 필요'})`, isAnvil);
+          await refreshWalletInfo();
+          if (accounts && accounts.length === 0) {
+            setStatus($('walletStatus'), '지갑 계정이 없습니다.', false);
+          }
+          if (activeEip1193Provider && activeEip1193Provider.on) {
+            activeEip1193Provider.on('accountsChanged', () => window.location.reload());
+            activeEip1193Provider.on('chainChanged', () => window.location.reload());
+          }
+          log(`${providerName} 연결 성공.`);
+        } catch (e) {
+          console.error(e);
+          setStatus($('walletStatus'), '연결 실패: ' + (e?.message || e), false);
+        }
+      }
+
+      async function refreshWalletInfo() {
+        if (!provider) return;
+        const accounts = await provider.listAccounts();
+        if (accounts.length > 0) {
+          const a = accounts[0].address;
+          $('account').textContent = a;
+        }
+        await refreshBalances();
+      }
+
+      async function refreshBalances() {
+        if (!provider || !signer || !demoConfig) return;
+
+        try {
+          const wallet = await signer.getAddress();
+          const executorAddress = $('executorAddress').value.trim();
+          const wbnbAddress = getTokenAddress('WBNB');
+          const usdtAddress = getTokenAddress('USDT');
+          const wbnb = new ethers.Contract(wbnbAddress, mockWbnbABI, provider);
+          const usdt = new ethers.Contract(usdtAddress, erc20ABI, provider);
+
+          const [nativeBal, walletWbnb, walletUsdt] = await Promise.all([
+            provider.getBalance(wallet),
+            wbnb.balanceOf(wallet),
+            usdt.balanceOf(wallet)
+          ]);
+
+          $('walletNativeBalance').textContent = formatTokenAmount(nativeBal);
+          $('walletWbnbBalance').textContent = formatTokenAmount(walletWbnb);
+          $('walletUsdtBalance').textContent = formatTokenAmount(walletUsdt);
+          $('directSwapTokenInBalance').textContent = $('directSwapTokenIn').value === 'WBNB'
+            ? formatTokenAmount(walletWbnb)
+            : formatTokenAmount(walletUsdt);
+          $('directSwapTokenOutBalance').textContent = $('directSwapTokenOut').value === 'WBNB'
+            ? formatTokenAmount(walletWbnb)
+            : formatTokenAmount(walletUsdt);
+
+          if (validateAddress(executorAddress)) {
+            const [executorWbnb, executorUsdt] = await Promise.all([
+              wbnb.balanceOf(executorAddress),
+              usdt.balanceOf(executorAddress)
+            ]);
+            $('executorWbnbBalance').textContent = formatTokenAmount(executorWbnb);
+            $('executorUsdtBalance').textContent = formatTokenAmount(executorUsdt);
+          } else {
+            $('executorWbnbBalance').textContent = '-';
+            $('executorUsdtBalance').textContent = '-';
+          }
+        } catch (e) {
+          log('보유량 조회 실패: ' + e.message);
+        }
+
+        await refreshDirectSwapPoolState();
+      }
+
+      async function refreshDirectSwapPoolState() {
+        if (!provider || !demoConfig) return;
+
+        const routerAddress = $('directSwapRouter').value.trim() || $('swapRouterAddress').value.trim();
+        const tokenIn = getSelectedTokenAddress('directSwapTokenIn');
+        const tokenOut = getSelectedTokenAddress('directSwapTokenOut');
+        const wbnbAddress = getTokenAddress('WBNB');
+        const usdtAddress = getTokenAddress('USDT');
+
+        if (!validateAddress(routerAddress) || !validateAddress(tokenIn) || !validateAddress(tokenOut)) {
+          $('directSwapPairRate').textContent = '-';
+          $('directSwapRouterWbnbBalance').textContent = '-';
+          $('directSwapRouterUsdtBalance').textContent = '-';
+          $('directSwapPoolHint').textContent = '라우터/토큰 정보를 확인하세요';
+          $('directSwapExpectedOut').textContent = '-';
+          $('directSwapMinOut').textContent = '-';
+          return;
+        }
+
+        try {
+          const router = new ethers.Contract(routerAddress, mockRouterABI, provider);
+          const wbnb = new ethers.Contract(wbnbAddress, erc20ABI, provider);
+          const usdt = new ethers.Contract(usdtAddress, erc20ABI, provider);
+
+          const amountIn = parseTokenInput($('directSwapAmountIn').value);
+          const [pairRate, routerWbnb, routerUsdt, quote] = await Promise.all([
+            router.pairRate(tokenIn, tokenOut),
+            wbnb.balanceOf(routerAddress),
+            usdt.balanceOf(routerAddress),
+            quoteSwap(tokenIn, tokenOut, amountIn, routerAddress)
+          ]);
+
+          $('directSwapPairRate').textContent = formatTokenAmount(pairRate);
+          $('directSwapRouterWbnbBalance').textContent = formatTokenAmount(routerWbnb);
+          $('directSwapRouterUsdtBalance').textContent = formatTokenAmount(routerUsdt);
+          $('directSwapPoolHint').textContent = `${$('directSwapTokenIn').value} -> ${$('directSwapTokenOut').value} 기준입니다`;
+          $('directSwapExpectedOut').textContent = formatTokenAmount(quote.expectedOut);
+          $('directSwapExpectedOutHero').textContent = formatTokenAmount(quote.expectedOut);
+          $('directSwapMinOut').textContent = formatTokenAmount(quote.minOut);
+        } catch (e) {
+          $('directSwapPairRate').textContent = '-';
+          $('directSwapRouterWbnbBalance').textContent = '-';
+          $('directSwapRouterUsdtBalance').textContent = '-';
+          $('directSwapPoolHint').textContent = 'pool 상태 조회 실패';
+          $('directSwapExpectedOut').textContent = '-';
+          $('directSwapExpectedOutHero').textContent = '-';
+          $('directSwapMinOut').textContent = '-';
+          log('direct swap pool 조회 실패: ' + e.message);
+        }
+      }
+
+      async function refreshExecutorSwapQuote() {
+        if (!provider || !demoConfig) return;
+
+        const routerAddress = $('swapRouter').value.trim() || $('swapRouterAddress').value.trim();
+        const tokenIn = getSelectedTokenAddress('swapTokenIn');
+        const tokenOut = getSelectedTokenAddress('swapTokenOut');
+        const amountIn = parseTokenInput($('swapAmountIn').value);
+
+        try {
+          const quote = await quoteSwap(tokenIn, tokenOut, amountIn, routerAddress);
+          $('executorSwapExpectedOut').textContent = formatTokenAmount(quote.expectedOut);
+          $('executorSwapMinOut').textContent = formatTokenAmount(quote.minOut);
+        } catch {
+          $('executorSwapExpectedOut').textContent = '-';
+          $('executorSwapMinOut').textContent = '-';
+        }
+      }
+
+      async function mintUsdt() {
+        if (!signer) return alert('먼저 지갑을 연결하세요');
+        const usdtAddress = getTokenAddress('USDT');
+        const amount = $('mintUsdtAmount').value.trim();
+        if (!validateAddress(usdtAddress) || !amount) return alert('USDT mint amount를 확인하세요');
+
+        try {
+          const usdt = new ethers.Contract(usdtAddress, erc20ABI, signer);
+          const tx = await usdt.mint(await signer.getAddress(), ethers.parseUnits(amount, 18));
+          setStatus($('mintUsdtStatus'), `USDT mint tx: ${tx.hash}`, true);
+          await tx.wait();
+          setStatus($('mintUsdtStatus'), 'USDT mint 완료', true);
+          log(`USDT mint tx: ${tx.hash}`);
+          await refreshBalances();
+        } catch (e) {
+          setStatus($('mintUsdtStatus'), 'USDT mint 실패: ' + e.message, false);
+        }
+      }
+
+      async function loadContracts() {
+        const registryAddress = $('registryAddress').value.trim();
+        const executorAddress = $('executorAddress').value.trim();
+        const swapRouterAddress = $('swapRouterAddress').value.trim();
+
+        if (!validateAddress(registryAddress)) return setStatus($('initStatus'), 'TradeReceiptRegistry 주소가 유효하지 않습니다.', false);
+        if (!validateAddress(executorAddress)) return setStatus($('initStatus'), 'PerUserExecutor 주소가 유효하지 않습니다.', false);
+
+        registry = new ethers.Contract(registryAddress, registryABI, signer);
+        executor = new ethers.Contract(executorAddress, perUserExecutorABI, signer);
+        if (validateAddress(swapRouterAddress)) {
+          mockRouter = new ethers.Contract(swapRouterAddress, mockRouterABI, signer);
+          if (!$('swapRouter').value.trim()) $('swapRouter').value = swapRouterAddress;
+          setStatus($('initStatus'), '계약이 연결되었습니다. mock Router가 함께 설정되었습니다.', true);
+        } else {
+          mockRouter = null;
+          setStatus($('initStatus'), '계약이 연결되었습니다. swapRouter는 실행 시 별도로 지정하세요.', true);
+        }
+        await refreshExecutorState();
+        await refreshBalances();
+        log(`contracts loaded: registry=${registryAddress}, executor=${executorAddress}`);
+        if (mockRouter) log(`mock router loaded: ${swapRouterAddress}`);
+        await refreshDirectSwapPoolState();
+      }
+
+      async function refreshExecutorState() {
+        if (!executor) return;
+        try {
+          const [owner, operator, strategyId, cap, spent, epoch] = await Promise.all([
+            executor.owner(),
+            executor.operator(),
+            executor.strategyId(),
+            executor.epochSpendCap(),
+            executor.spentThisEpoch(),
+            executor.currentEpoch()
+          ]);
+          $('ownerAddr').textContent = owner;
+          $('operatorAddr').textContent = operator;
+          $('strategyView').textContent = strategyId;
+          $('epochCap').textContent = formatTokenAmount(cap);
+          $('spentEpoch').textContent = formatTokenAmount(spent);
+          $('currentEpoch').textContent = epoch.toString();
+          if ($('strategyId').value.trim() === '') $('strategyId').value = strategyId;
+          setStatus($('walletStatus'), '상태 조회 완료', true);
+          await refreshBalances();
+        } catch (e) {
+          log('executor 조회 실패: ' + e.message);
+          setStatus($('walletStatus'), '계약 조회 실패', false);
+        }
+      }
+
+      async function setOperator() {
+        const v = $('operatorInput').value.trim();
+        if (!validateAddress(v)) return alert('operator 주소가 올바르지 않습니다');
+        try {
+          const tx = await executor.setOperator(v);
+          await tx.wait();
+          log('setOperator tx sent: ' + tx.hash);
+          await refreshExecutorState();
+        } catch (e) { log('setOperator 실패: ' + e.message); }
+      }
+
+      async function revokeOperator() {
+        try {
+          const tx = await executor.revokeOperator();
+          await tx.wait();
+          log('revokeOperator tx sent: ' + tx.hash);
+          await refreshExecutorState();
+        } catch (e) { log('revokeOperator 실패: ' + e.message); }
+      }
+
+      async function setRouter() {
+        const r = $('routerAddr').value.trim();
+        const allowed = $('routerAllowed').value === 'true';
+        if (!validateAddress(r)) return alert('router 주소가 올바르지 않습니다');
+        try {
+          const tx = await executor.setAllowedRouter(r, allowed);
+          await tx.wait();
+          log(`setAllowedRouter(${r}, ${allowed})`);
+          await refreshExecutorState();
+        } catch (e) { log('setAllowedRouter 실패: ' + e.message); }
+      }
+
+      async function setToken() {
+        const t = getSelectedTokenAddress('tokenAddr');
+        const allowed = $('tokenAllowed').value === 'true';
+        if (!validateAddress(t)) return alert('token 주소가 올바르지 않습니다');
+        try {
+          const tx = await executor.setAllowedToken(t, allowed);
+          await tx.wait();
+          log(`setAllowedToken(${t}, ${allowed})`);
+          await refreshExecutorState();
+        } catch (e) { log('setAllowedToken 실패: ' + e.message); }
+      }
+
+      async function setBatchTokens(flag) {
+        const toks = [getTokenAddress('WBNB'), getTokenAddress('USDT')].filter(validateAddress);
+        try {
+          const allowed = Array(toks.length).fill(Boolean(flag));
+          const tx = await executor.setAllowedTokensBatch(toks, allowed);
+          await tx.wait();
+          log(`setAllowedTokensBatch(flag=${flag}, count=${toks.length})`);
+          await refreshExecutorState();
+        } catch (e) { log('setAllowedTokensBatch 실패: ' + e.message); }
+      }
+
+      async function setEpochCap() {
+        const capInput = $('capInput').value.trim();
+        const cap = parseTokenInput(capInput);
+        if (!capInput || cap <= 0n) return alert('0보다 큰 숫자를 입력하세요');
+        try {
+          const tx = await executor.setEpochSpendCap(cap);
+          await tx.wait();
+          log(`setEpochSpendCap(${capInput})`);
+          await refreshExecutorState();
+        } catch (e) { log('setEpochSpendCap 실패: ' + e.message); }
+      }
+
+      async function doWithdraw() {
+        const token = getSelectedTokenAddress('withdrawToken');
+        const to = $('withdrawTo').value.trim();
+        const amountInput = $('withdrawAmount').value.trim();
+        const amount = parseTokenInput(amountInput);
+        if (!validateAddress(token) || !validateAddress(to) || !amountInput || amount <= 0n) {
+          return alert('withdraw 입력값을 확인하세요');
+        }
+        try {
+          const tx = await executor.withdraw(token, to, amount);
+          await tx.wait();
+          log(`withdraw tx: ${tx.hash} (${amountInput})`);
+          await refreshExecutorState();
+        } catch (e) { log('withdraw 실패: ' + e.message); }
+      }
+
+      async function depositWbnb() {
+        const wbnbAddress = getTokenAddress('WBNB');
+        const amount = $('wbnbAmount').value.trim();
+        if (!validateAddress(wbnbAddress) || !amount) return alert('WBNB amount를 확인하세요');
+
+        try {
+          const wbnb = new ethers.Contract(wbnbAddress, mockWbnbABI, signer);
+          const tx = await wbnb.deposit({ value: ethers.parseEther(amount) });
+          setStatus($('wbnbStatus'), `deposit tx: ${tx.hash}`, true);
+          await tx.wait();
+          setStatus($('wbnbStatus'), 'WBNB deposit 완료', true);
+          log(`WBNB deposit tx: ${tx.hash}`);
+          await refreshBalances();
+        } catch (e) {
+          setStatus($('wbnbStatus'), 'WBNB deposit 실패: ' + e.message, false);
+        }
+      }
+
+      async function withdrawWbnb() {
+        const wbnbAddress = getTokenAddress('WBNB');
+        const amount = $('wbnbAmount').value.trim();
+        if (!validateAddress(wbnbAddress) || !amount) return alert('WBNB amount를 확인하세요');
+
+        try {
+          const wbnb = new ethers.Contract(wbnbAddress, mockWbnbABI, signer);
+          const tx = await wbnb.withdraw(ethers.parseEther(amount));
+          setStatus($('wbnbStatus'), `withdraw tx: ${tx.hash}`, true);
+          await tx.wait();
+          setStatus($('wbnbStatus'), 'WBNB withdraw 완료', true);
+          log(`WBNB withdraw tx: ${tx.hash}`);
+          await refreshBalances();
+        } catch (e) {
+          setStatus($('wbnbStatus'), 'WBNB withdraw 실패: ' + e.message, false);
+        }
+      }
+
+      async function directSwap() {
+        if (!signer) return alert('먼저 지갑을 연결하세요');
+
+        const routerAddress = $('directSwapRouter').value.trim() || $('swapRouterAddress').value.trim();
+        const tokenIn = getSelectedTokenAddress('directSwapTokenIn');
+        const tokenOut = getSelectedTokenAddress('directSwapTokenOut');
+        const amountInInput = $('directSwapAmountIn').value.trim();
+        const amountIn = parseTokenInput(amountInInput);
+
+        if (!validateAddress(routerAddress) || !validateAddress(tokenIn) || !validateAddress(tokenOut) || !amountInInput || amountIn <= 0n) {
+          return alert('direct swap 입력값을 확인하세요');
+        }
+
+        try {
+          const router = new ethers.Contract(routerAddress, mockRouterABI, signer);
+          const tokenInContract = new ethers.Contract(tokenIn, erc20ABI, signer);
+          const quote = await quoteSwap(tokenIn, tokenOut, amountIn, routerAddress);
+
+          const approveTx = await tokenInContract.approve(routerAddress, amountIn);
+          setStatus($('directSwapResult'), `approve tx: ${approveTx.hash}`, true);
+          await approveTx.wait();
+
+          const tx = await router.exactInputSingle({
+            tokenIn,
+            tokenOut,
+            fee: 500,
+            recipient: await signer.getAddress(),
+            deadline: Math.floor(Date.now() / 1000) + 60,
+            amountIn,
+            amountOutMinimum: quote.minOut,
+            sqrtPriceLimitX96: 0
+          });
+          setStatus($('directSwapResult'), `swap tx: ${tx.hash}`, true);
+          await tx.wait();
+          setStatus($('directSwapResult'), '직접 swap 완료', true);
+          log(`direct swap tx: ${tx.hash}`);
+          await refreshBalances();
+          await refreshDirectSwapPoolState();
+        } catch (e) {
+          setStatus($('directSwapResult'), '직접 swap 실패: ' + (e?.reason || e?.message || String(e)), false);
+        }
+      }
+
+      function setDirectSwapPreset(amountText) {
+        $('directSwapAmountIn').value = amountText;
+        refreshDirectSwapPoolState();
+      }
+
+      function setWbnbPreset(amountText) {
+        $('wbnbAmount').value = amountText;
+      }
+
+      async function setDirectSwapMax() {
+        if (!provider || !signer) return alert('먼저 지갑을 연결하세요');
+
+        const tokenIn = getSelectedTokenAddress('directSwapTokenIn');
+        if (!validateAddress(tokenIn)) return;
+
+        const token = new ethers.Contract(tokenIn, erc20ABI, provider);
+        const wallet = await signer.getAddress();
+        const balance = await token.balanceOf(wallet);
+        $('directSwapAmountIn').value = ethers.formatUnits(balance, 18);
+        await refreshDirectSwapPoolState();
+      }
+
+      function flipDirectSwapTokens() {
+        const currentIn = $('directSwapTokenIn').value;
+        const currentOut = $('directSwapTokenOut').value;
+        $('directSwapTokenIn').value = currentOut;
+        $('directSwapTokenOut').value = currentIn;
+        refreshBalances();
+      }
+
+      async function executeSwap() {
+        const [routerInput, tokenIn, tokenOut] = [
+          $('swapRouter').value.trim(),
+          getSelectedTokenAddress('swapTokenIn'),
+          getSelectedTokenAddress('swapTokenOut')
+        ];
+        const defaultRouter = $('swapRouterAddress').value.trim();
+        const router = routerInput || defaultRouter;
+
+        if (!validateAddress(router) || !validateAddress(tokenIn) || !validateAddress(tokenOut)) {
+          return alert('swap 주소가 유효하지 않습니다');
+        }
+
+        const amountIn = parseTokenInput($('swapAmountIn').value.trim() || '0');
+        if (amountIn <= 0n) return alert('0보다 큰 amountIn을 입력하세요');
+        const quote = await quoteSwap(tokenIn, tokenOut, amountIn, router);
+        const amountOutMinimum = quote.minOut;
+        const sqrtPriceLimitX96 = 0n;
+        const deadline = BigInt(Math.floor(Date.now()/1000) + 60);
+
+        const req = {
+          router,
+          tokenIn,
+          tokenOut,
+          fee: 500,
+          amountIn,
+          amountOutMinimum,
+          sqrtPriceLimitX96,
+          deadline
+        };
+
+        try {
+          const tx = await executor.executeSwap(req);
+          setStatus($('swapResult'), `Tx sent: ${tx.hash}`, true);
+          const receipt = await tx.wait();
+          setStatus($('swapResult'), `완료: ${receipt.hash} / block ${receipt.blockNumber}`, true);
+          log(`executeSwap tx: ${tx.hash}`);
+          await refreshExecutorState();
+          await refreshBalances();
+        } catch (e) {
+          const msg = e?.reason || e?.message || String(e);
+          setStatus($('swapResult'), '실패: ' + msg, false);
+          log('executeSwap 실패: ' + msg);
+        }
+      }
+
+      async function refreshReceiptsCount() {
+        const strat = $('strategyId').value.trim();
+        if (!strat) return alert('strategyId 입력');
+        try {
+          const c = await registry.receiptCount(strat);
+          $('registryStatus').textContent = `receiptCount: ${c.toString()}`;
+          setStatus($('registryStatus'), `receiptCount: ${c.toString()}`, true);
+          log(`receiptCount(${strat}) = ${c}`);
+        } catch (e) {
+          setStatus($('registryStatus'), 'receiptCount 실패: ' + e.message, false);
+        }
+      }
+
+      async function refreshReceipts() {
+        const strat = $('strategyId').value.trim();
+        if (!strat) return alert('strategyId 입력');
+        try {
+          const receipts = await registry.receiptsOf(strat);
+          const lines = [];
+          for (const [i, r] of receipts.entries()) {
+            lines.push(
+              `#${i} user=${r.user} in=${r.tokenIn} out=${r.tokenOut} inAmt=${r.amountIn.toString()} outAmt=${r.amountOut.toString()} ts=${new Date(Number(r.timestamp) * 1000).toISOString()}`
+            );
+          }
+          receiptLog.textContent = lines.join('\n');
+          setStatus($('registryStatus'), `총 ${lines.length}개 영수증`, true);
+          log(`receiptsOf(${strat}) 조회 완료`);
+        } catch (e) {
+          setStatus($('registryStatus'), 'receiptsOf 실패: ' + e.message, false);
+        }
+      }
+
+      async function recordTradeSample() {
+        const strat = $('strategyId').value.trim();
+        const u = $('operatorAddr').textContent || '';
+        const inTok = getSelectedTokenAddress('swapTokenIn');
+        const outTok = getSelectedTokenAddress('swapTokenOut');
+        const amountInInput = $('swapAmountIn').value.trim() || '0';
+        const routerAddress = $('swapRouter').value.trim() || $('swapRouterAddress').value.trim();
+
+        if (!strat || !validateAddress(inTok) || !validateAddress(outTok)) {
+          return alert('recordTrade에는 strategyId, tokenIn, tokenOut가 필요합니다');
+        }
+
+        try {
+          const amountIn = parseTokenInput(amountInInput);
+          const quote = await quoteSwap(inTok, outTok, amountIn, routerAddress);
+          const amountOut = quote.expectedOut.toString();
+          const tx = await registry.recordTrade(strat, u, inTok, outTok, amountIn, amountOut);
+          const receipt = await tx.wait();
+          const ev = receipt.logs[0];
+          log(`recordTrade tx: ${tx.hash}`);
+          await refreshReceiptsCount();
+          await refreshReceipts();
+          setStatus($('registryStatus'), `recordTrade 완료: ${tx.hash}`, true);
+        } catch (e) {
+          setStatus($('registryStatus'), 'recordTrade 실패: ' + e.message, false);
+        }
+      }
+
+      function disconnect() {
+        $('account').textContent = '-';
+        $('chain').textContent = '-';
+        $('network').textContent = '-';
+        setStatus($('walletStatus'), '초기화됨', true);
+        setStatus($('initStatus'), '주소 입력 후 로드하세요.', true);
+        provider = null;
+        signer = null;
+        registry = null;
+        executor = null;
+        mockRouter = null;
+        $('log').textContent = '';
+        receiptLog.textContent = '';
+      }
+
+      function setUpHandlers() {
+        $('connectBtn').addEventListener('click', connectWallet);
+        $('disconnectBtn').addEventListener('click', disconnect);
+        $('loadBtn').addEventListener('click', loadContracts);
+        $('refreshBtn').addEventListener('click', refreshExecutorState);
+        $('refreshSimple').addEventListener('click', refreshExecutorState);
+        $('setOperatorBtn').addEventListener('click', setOperator);
+        $('revokeOperatorBtn').addEventListener('click', revokeOperator);
+        $('setRouterBtn').addEventListener('click', setRouter);
+        $('setTokenBtn').addEventListener('click', setToken);
+        $('batchAllowBtn').addEventListener('click', () => setBatchTokens(true));
+        $('batchDenyBtn').addEventListener('click', () => setBatchTokens(false));
+        $('setCapBtn').addEventListener('click', setEpochCap);
+        $('withdrawBtn').addEventListener('click', doWithdraw);
+        $('refreshBalancesBtn').addEventListener('click', refreshBalances);
+        $('mintUsdtBtn').addEventListener('click', mintUsdt);
+        $('wbnbPreset01').addEventListener('click', () => setWbnbPreset('0.1'));
+        $('wbnbPreset1').addEventListener('click', () => setWbnbPreset('1'));
+        $('wbnbPreset5').addEventListener('click', () => setWbnbPreset('5'));
+        $('wbnbDepositBtn').addEventListener('click', depositWbnb);
+        $('wbnbWithdrawBtn').addEventListener('click', withdrawWbnb);
+        $('directSwapMaxBtn').addEventListener('click', setDirectSwapMax);
+        $('directSwapPreset01').addEventListener('click', () => setDirectSwapPreset('0.1'));
+        $('directSwapPreset1').addEventListener('click', () => setDirectSwapPreset('1'));
+        $('directSwapPreset10').addEventListener('click', () => setDirectSwapPreset('10'));
+        $('directSwapFlipBtn').addEventListener('click', flipDirectSwapTokens);
+        $('directSwapRefreshBtn').addEventListener('click', refreshDirectSwapPoolState);
+        $('directSwapRouter').addEventListener('change', refreshDirectSwapPoolState);
+        $('directSwapTokenIn').addEventListener('change', () => {
+          normalizeTokenSelection('directSwapTokenIn', 'directSwapTokenOut');
+          refreshBalances();
+        });
+        $('directSwapTokenOut').addEventListener('change', () => {
+          normalizeTokenSelection('directSwapTokenIn', 'directSwapTokenOut');
+          refreshBalances();
+        });
+        $('directSwapAmountIn').addEventListener('input', refreshDirectSwapPoolState);
+        $('swapRouter').addEventListener('change', refreshExecutorSwapQuote);
+        $('swapTokenIn').addEventListener('change', () => {
+          normalizeTokenSelection('swapTokenIn', 'swapTokenOut');
+          refreshExecutorSwapQuote();
+        });
+        $('swapTokenOut').addEventListener('change', () => {
+          normalizeTokenSelection('swapTokenIn', 'swapTokenOut');
+          refreshExecutorSwapQuote();
+        });
+        $('swapAmountIn').addEventListener('input', refreshExecutorSwapQuote);
+        $('directSwapBtn').addEventListener('click', directSwap);
+        $('execSwapBtn').addEventListener('click', executeSwap);
+        $('receiptCountBtn').addEventListener('click', refreshReceiptsCount);
+        $('receiptsBtn').addEventListener('click', refreshReceipts);
+        $('recordBtn').addEventListener('click', recordTradeSample);
+      }
+
+      applyDemoConfig();
+      refreshExecutorSwapQuote();
+      setUpHandlers();
+    </script>
+  </body>
+</html>
