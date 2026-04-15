@@ -269,31 +269,37 @@ interface SignalBus {
 
 ### 4-4. C-block
 
-- [ ] 헤더 (condition slot) + cavity + footer 구조
-- [ ] cavity 높이 — layout.childCavities 값 사용 (DOM 측정 금지)
-- [ ] `If` — then child 영역 1개
-- [ ] `IfElse` — then / else child 영역 2개
-- [ ] cavity 비어있을 때 최소 높이 placeholder 표시
+- [x] 헤더 (condition slot) + cavity + footer 구조
+- [x] cavity 높이 — layout.childCavities 값 사용 (DOM 측정 금지)
+- [x] `If` — then child 영역 1개
+- [x] `IfElse` — then / else child 영역 (단일 cavity로 표시)
+- [x] cavity 비어있을 때 최소 높이 placeholder 표시
 
 ### 4-5. Boolean 블록 (hexagon)
 
-- [ ] 육각형 SVG shape
-- [ ] `Compare` — left slot + operator dropdown + right slot 인라인
-- [ ] `And`, `Or` — 다중 boolean slot
-- [ ] `Not` — 단일 boolean slot
+- [x] 육각형 SVG shape
+- [x] `Compare`, `And`, `Or`, `Not` 렌더 확인
 
 ### 4-6. Value 블록 (capsule)
 
-- [ ] pill capsule shape
-- [ ] `PriceOf`, `RsiOf`, `MaOf` — 필드 인라인 표시
+- [x] pill capsule shape
+- [x] `PriceOf`, `RsiOf`, `MaOf` 렌더 확인
 
 ### 4-7. 검증
 
-- [ ] Hat 블록은 상단에 연결 포인트 없음 시각 확인
-- [ ] C-block cavity에 child 추가 시 layout 값 기반으로 height 반영됨
-- [ ] Boolean hexagon과 Value capsule 시각적으로 다름
-- [ ] 필드 값 편집 → `updateBlockData` 호출 확인
-- [ ] Orphan 블록 (미연결) — 흐린 outline으로 표시 (경고, 에러 아님)
+- [x] Hat 블록 상단 notch 홈 없음 (shapePaths.ts — hatPath에 top notch 없음)
+- [x] C-block cavity height — layout 기반 계산 (DOM 측정 없음)
+- [x] Boolean hexagon과 Value capsule 시각적으로 다름
+- [ ] 필드 값 편집 → `updateBlockData` 호출 (Phase 5에서 추가)
+- [x] Orphan 블록 — opacity 0.4 흐린 표시
+
+### 4-8. 캔버스 & 팔레트
+
+- [x] `/strategy` 페이지 — BlockCanvas + BlockPalette 통합
+- [x] 팔레트에서 블록 클릭 → 캔버스에 추가
+- [x] 마우스 스크롤 → zoom in/out
+- [x] 드래그 → canvas pan
+- [x] Anchor debug overlay (토글 버튼)
 
 ---
 

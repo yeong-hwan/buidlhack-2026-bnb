@@ -91,7 +91,7 @@ export type PortRole =
   | 'value-out'
   | 'trigger-out'
   | 'child-slot';
-// signal-out은 SignalBus로 처리. anchor/snap 대상 아님.
+  // signal-out은 SignalBus로 처리. anchor/snap 대상 아님.
 
 export interface PortAnchor {
   blockId: string;
