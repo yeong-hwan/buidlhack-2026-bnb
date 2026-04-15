@@ -46,6 +46,7 @@ export { CooldownAfterLoss } from './guard/CooldownAfterLoss';
 export { KillSwitch } from './guard/KillSwitch';
 
 export type { Block, BlockCategory, BlockShape, BlockSpec, PortSpec, ChildSlotSpec, PortDirection, PortKind, ValueType } from './base';
+export { BLOCK_REGISTRY, createBlockNode, getBlockSpec } from './registry';
 export type { IntervalUnit, SignalType, NewsSource, SentimentSource, CompareOperator, ConsensusMode, PositionField, PortfolioField } from './types';
 
 // Phase 0: 데이터 모델
