@@ -66,9 +66,10 @@ export type {
   ValidationLayer, ValidationSeverity, ValidationError,
   EditorState, Point, Signal,
 } from './document';
-export { screenToWorld, worldToScreen } from './document';
+export { screenToWorld, worldToScreen, isBlockOfType, getRootBlocks } from './document';
 
 export type {
   LiteralValue, CompiledNodeKind, CompiledNode,
-  Position, PortfolioState, SignalBus, RuntimeContext, CompiledGraph,
+  Position, PortfolioState, SignalBus,
+  StrategyState, RuntimeContext, CompiledGraph,
 } from './runtime';
