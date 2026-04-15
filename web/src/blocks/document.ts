@@ -36,16 +36,16 @@
 import type { BlockData, BlockType, BlockTypeDataMap } from './data';
 import type { SignalType } from './types';
 
-// ── BlockNode — Discriminated Union ─────────────────────────────────────────
+// ── BlockNode ────────────────────────────────────────────────────────────────
 //
-// type + data가 항상 일치하도록 discriminated union으로 정의.
-// 예: type='buy_market'이면 data는 반드시 BuyMarketData.
-// TypeScript switch(node.type) 문에서 자동 narrowing 가능.
+// 편집기 저장용 단순 인터페이스.
+// type + data 일치 보장은 createBlockNode(registry.ts)에서 담당.
+// 특정 type으로 narrowing이 필요하면 isBlockOfType() 또는 TypedBlockNode<T> 사용.
 
-type BlockNodeOf<T extends BlockType> = {
+export interface BlockNode {
   id: string;
-  type: T;
-  data: BlockTypeDataMap[T];
+  type: BlockType;
+  data: BlockData;
   /** world 좌표 */
   x: number;
   /** world 좌표 */
@@ -54,14 +54,15 @@ type BlockNodeOf<T extends BlockType> = {
    * C-block 전용 child slot.
    * key: slot 이름 ('then', 'else', 'signals')
    * value: child block id 배열 (순서 = 실행 순서)
-   *
-   * child 내부에서 statement-to-statement edge는 사용하지 않음.
-   * 배열 순서만으로 statement flow를 표현.
    */
   children?: Record<string, string[]>;
-};
+}
 
-export type BlockNode = { [K in BlockType]: BlockNodeOf<K> }[BlockType];
+/** 특정 type에 data가 정확히 매핑된 typed node (narrowing용) */
+export type TypedBlockNode<T extends BlockType> = Omit<BlockNode, 'type' | 'data'> & {
+  type: T;
+  data: BlockTypeDataMap[T];
+};
 
 // ── Edge ─────────────────────────────────────────────────────────────────────
 
@@ -178,7 +179,7 @@ export interface Signal {
 export function isBlockOfType<T extends BlockType>(
   node: BlockNode,
   type: T,
-): node is Extract<BlockNode, { type: T }> {
+): node is TypedBlockNode<T> {
   return node.type === type;
 }
 

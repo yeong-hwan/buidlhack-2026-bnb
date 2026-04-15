@@ -10,7 +10,7 @@
  */
 import type { Block } from './base';
 import type { BlockType, BlockTypeDataMap } from './data';
-import type { BlockNode } from './document';
+import type { BlockNode, TypedBlockNode } from './document';
 
 // Start
 import { EveryInterval } from './start/EveryInterval';
@@ -169,13 +169,13 @@ export function createBlockNode<T extends BlockType>(
   type: T,
   x: number,
   y: number,
-): Extract<BlockNode, { type: T }> {
+): TypedBlockNode<T> {
   if (!(type in BLOCK_REGISTRY)) {
     throw new Error(`[createBlockNode] Unknown block type: "${type}"`);
   }
 
   const data = BLOCK_DEFAULTS[type]();
-  const node = { id: crypto.randomUUID(), type, data, x, y } as Extract<BlockNode, { type: T }>;
+  const node: TypedBlockNode<T> = { id: crypto.randomUUID(), type, data: data as BlockTypeDataMap[T], x, y };
 
   // C-block 타입은 children 초기화
   const spec = new BLOCK_REGISTRY[type]().getSpec();
@@ -184,7 +184,7 @@ export function createBlockNode<T extends BlockType>(
     for (const slot of spec.childSlots) {
       children[slot.name] = [];
     }
-    (node as BlockNode & { children: Record<string, string[]> }).children = children;
+    (node as BlockNode).children = children;
   }
 
   return node;

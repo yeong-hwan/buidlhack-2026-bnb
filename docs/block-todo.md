@@ -143,8 +143,8 @@ interface SignalBus {
 
 ### 0-9. 검증
 
-- [ ] `BlockNode` 생성 → JSON 직렬화 → 복원 후 동일한 구조 (Phase 2 store 완료 후 검증)
-- [ ] C-block `BlockNode` — `children.then` 배열 순서 보존 확인 (Phase 2 store 완료 후 검증)
+- [x] `BlockNode` 생성 → JSON 직렬화 → 복원 후 동일한 구조 (documentStore.test.ts 통과)
+- [x] C-block `BlockNode` — `children.then` 배열 순서 보존 확인 (documentStore.test.ts 통과)
 - [x] `npx tsc --noEmit` 에러 없음
 
 ---
@@ -164,9 +164,9 @@ interface SignalBus {
 
 - [x] 존재하는 type → 올바른 `BlockNode` 반환 (타입 레벨 보장, tsc 통과)
 - [x] 존재하지 않는 type → 명확한 에러 발생 (throw 구현됨)
-- [ ] `createBlockNode('every_interval', ...)` → `data.interval === 1`, `data.unit === 'h'` (Phase 2 UI 후 런타임 검증)
-- [ ] `createBlockNode('buy_market', ...)` → `data.asset === ''`, `data.amount === 0` (Phase 2 UI 후 런타임 검증)
-- [ ] 34개 블록 전부 `getSpec()` 호출 성공 — inputPorts/outputPorts 비어있지 않음 (Phase 2 UI 후 런타임 검증)
+- [x] `createBlockNode('every_interval', ...)` → `data.interval === 1`, `data.unit === 'h'` (registry.test.ts 통과)
+- [x] `createBlockNode('buy_market', ...)` → `data.asset === ''`, `data.amount === 0` (registry.test.ts 통과)
+- [x] 34개 블록 전부 `getSpec()` 호출 성공 — inputPorts/outputPorts 비어있지 않음 (registry.test.ts 통과)
 
 ---
 
@@ -174,30 +174,30 @@ interface SignalBus {
 
 ### 2-1. Actions 구현
 
-- [ ] `addBlock(node: BlockNode)`
-- [ ] `removeBlock(id)` — 연결된 edge + 모든 부모 children 배열에서도 제거
-- [ ] `updateBlockData(id, data)` — 필드 값 변경
-- [ ] `updateBlockPosition(id, x, y)` — world 좌표
-- [ ] `addEdge(edge: Edge)`
-- [ ] `removeEdge(id)`
-- [ ] `insertIntoChildSlot(parentId, slotName, childId, index)`
-- [ ] `removeFromChildSlot(parentId, slotName, childId)`
-- [ ] `setZoom(zoom)`, `setPan(x, y)`
+- [x] `addBlock(node: BlockNode)`
+- [x] `removeBlock(id)` — 연결된 edge + 모든 부모 children 배열에서도 제거
+- [x] `updateBlockData(id, data)` — 필드 값 변경
+- [x] `updateBlockPosition(id, x, y)` — world 좌표
+- [x] `addEdge(edge: Edge)`
+- [x] `removeEdge(id)`
+- [x] `insertIntoChildSlot(parentId, slotName, childId, index)`
+- [x] `removeFromChildSlot(parentId, slotName, childId)`
+- [x] `setZoom(zoom)`, `setPan(x, y)`
 
 ### 2-2. Undo/Redo
 
-- [ ] `undo()` / `redo()` 구현
+- [ ] `undo()` / `redo()` 구현 (MVP 제외 — 구조만 준비)
 - [ ] 각 action이 history 스택에 쌓임
 
 ### 2-3. 검증
 
-- [ ] `addBlock` → store에 블록 추가 확인
-- [ ] `removeBlock('b1')` → 'b1'과 연결된 edge + 부모 children에서도 제거됨
-- [ ] `insertIntoChildSlot('if1', 'then', 'buy1', 0)` → `blocks['if1'].children.then[0] === 'buy1'`
-- [ ] `insertIntoChildSlot('if1', 'then', 'emit1', 1)` → 순서 `['buy1', 'emit1']`
-- [ ] `removeFromChildSlot('if1', 'then', 'buy1')` → `['emit1']`만 남음
-- [ ] `addBlock → undo → redo` → 상태 정확히 복원됨
-- [ ] `addEdge → removeBlock(from.blockId)` → edge도 함께 제거됨
+- [x] `addBlock` → store에 블록 추가 확인 (documentStore.test.ts 통과)
+- [x] `removeBlock('b1')` → 'b1'과 연결된 edge + 부모 children에서도 제거됨 (documentStore.test.ts 통과)
+- [x] `insertIntoChildSlot('if1', 'then', 'buy1', 0)` → `blocks['if1'].children.then[0] === 'buy1'` (documentStore.test.ts 통과)
+- [x] `insertIntoChildSlot('if1', 'then', 'emit1', 1)` → 순서 `['buy1', 'emit1']` (documentStore.test.ts 통과)
+- [x] `removeFromChildSlot('if1', 'then', 'buy1')` → `['emit1']`만 남음 (documentStore.test.ts 통과)
+- [ ] `addBlock → undo → redo` → 상태 정확히 복원됨 (MVP 제외)
+- [x] `addEdge → removeBlock(from.blockId)` → edge도 함께 제거됨 (documentStore.test.ts 통과)
 
 ---
 
