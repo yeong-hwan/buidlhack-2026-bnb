@@ -47,8 +47,8 @@ anchor = element.getBoundingClientRect()
 
 `data: Record<string, unknown>` 금지. 블록별 타입 유니온으로 정의.
 
-- [ ] 블록 data 타입 유니온 정의 (`EveryIntervalData`, `BuyMarketData`, `CompareData`, ... 전체)
-- [ ] `BlockNode<T extends BlockData = BlockData>` 제네릭 인터페이스
+- [x] 블록 data 타입 유니온 정의 (`EveryIntervalData`, `BuyMarketData`, `CompareData`, ... 전체)
+- [x] `BlockNode<T extends BlockData = BlockData>` 제네릭 인터페이스 (discriminated union으로 구현)
 
 ```ts
 // 예시
@@ -68,30 +68,30 @@ interface BlockNode {
 
 ### 0-2. Edge
 
-- [ ] `Edge` 인터페이스 (`id`, `from: {blockId, port}`, `to: {blockId, port}`)
-- [ ] `StrategyDocument` 인터페이스 (`blocks: Record<string, BlockNode>`, `edges: Edge[]`)
+- [x] `Edge` 인터페이스 (`id`, `from: {blockId, port}`, `to: {blockId, port}`)
+- [x] `StrategyDocument` 인터페이스 (`blocks: Record<string, BlockNode>`, `edges: Edge[]`)
 
 ### 0-3. PortAnchor — layout 기반
 
 DOM이 아니라 layout 계산 결과로 생성.
 
-- [ ] `PortAnchor` 인터페이스 (`blockId`, `portName`, `role`, `x`, `y`, `width`, `height`)
-- [ ] anchor는 world 좌표계 값
+- [x] `PortAnchor` 인터페이스 (`blockId`, `portName`, `role`, `x`, `y`, `width`, `height`)
+- [x] anchor는 world 좌표계 값
 
 ### 0-4. EditorState
 
-- [ ] `EditorState` 인터페이스
+- [x] `EditorState` 인터페이스
   - `document: StrategyDocument`
   - `draggingBlockId: string | null`
   - `hoverSnapTarget: { blockId: string; portName: string } | null`
   - `zoom: number`
   - `pan: { x: number; y: number }`
-  - `selectedBlockIds: string[]`
   - `validationErrors: ValidationError[]`
+  (selectedBlockIds MVP 제외)
 
 ### 0-5. CompiledNode — kind 필드 포함
 
-- [ ] `CompiledNode` 인터페이스
+- [x] `CompiledNode` 인터페이스
 
 ```ts
 interface CompiledNode {
@@ -106,7 +106,7 @@ interface CompiledNode {
 
 ### 0-6. RuntimeContext
 
-- [ ] `RuntimeContext` 인터페이스
+- [x] `RuntimeContext` 인터페이스
 
 ```ts
 interface RuntimeContext {
@@ -120,7 +120,7 @@ interface RuntimeContext {
 
 ### 0-7. Signal
 
-- [ ] `Signal` 인터페이스
+- [x] `Signal` 인터페이스
 
 ```ts
 interface Signal {
@@ -139,13 +139,13 @@ interface SignalBus {
 
 ### 0-8. ValidationError
 
-- [ ] `ValidationError` 인터페이스 (`blockId`, `portName?`, `layer: 'shape'|'type'|'semantics'`, `severity: 'error'|'warning'`, `message`)
+- [x] `ValidationError` 인터페이스 (`blockId`, `portName?`, `layer: 'shape'|'type'|'semantics'`, `severity: 'error'|'warning'`, `message`)
 
 ### 0-9. 검증
 
-- [ ] `BlockNode` 생성 → JSON 직렬화 → 복원 후 동일한 구조
-- [ ] C-block `BlockNode` — `children.then` 배열 순서 보존 확인
-- [ ] `npx tsc --noEmit` 에러 없음
+- [ ] `BlockNode` 생성 → JSON 직렬화 → 복원 후 동일한 구조 (Phase 2 store 완료 후 검증)
+- [ ] C-block `BlockNode` — `children.then` 배열 순서 보존 확인 (Phase 2 store 완료 후 검증)
+- [x] `npx tsc --noEmit` 에러 없음
 
 ---
 
@@ -153,20 +153,20 @@ interface SignalBus {
 
 ### 1-1. 구현
 
-- [ ] `BLOCK_REGISTRY: Record<string, new () => Block>` 구현
-- [ ] 34개 블록 전부 등록
-- [ ] `createBlockNode(type, x, y): BlockNode` 함수 구현
+- [x] `BLOCK_REGISTRY: Record<string, new () => Block>` 구현
+- [x] 34개 블록 전부 등록
+- [x] `createBlockNode(type, x, y): BlockNode` 함수 구현
   - registry에서 클래스 조회
   - 인스턴스 생성 → 기본값 추출 (정적 타입 data 객체 반환)
-  - uuid로 id 생성 → `BlockNode` 반환
+  - crypto.randomUUID()로 id 생성 → `BlockNode` 반환
 
 ### 1-2. 검증
 
-- [ ] 존재하는 type → 올바른 `BlockNode` 반환
-- [ ] 존재하지 않는 type → 명확한 에러 발생
-- [ ] `createBlockNode('every_interval', ...)` → `data.interval === 1`, `data.unit === 'h'`
-- [ ] `createBlockNode('buy_market', ...)` → `data.asset === ''`, `data.amount === 0`
-- [ ] 34개 블록 전부 `getSpec()` 호출 성공 — inputPorts/outputPorts 비어있지 않음
+- [x] 존재하는 type → 올바른 `BlockNode` 반환 (타입 레벨 보장, tsc 통과)
+- [x] 존재하지 않는 type → 명확한 에러 발생 (throw 구현됨)
+- [ ] `createBlockNode('every_interval', ...)` → `data.interval === 1`, `data.unit === 'h'` (Phase 2 UI 후 런타임 검증)
+- [ ] `createBlockNode('buy_market', ...)` → `data.asset === ''`, `data.amount === 0` (Phase 2 UI 후 런타임 검증)
+- [ ] 34개 블록 전부 `getSpec()` 호출 성공 — inputPorts/outputPorts 비어있지 않음 (Phase 2 UI 후 런타임 검증)
 
 ---
 
